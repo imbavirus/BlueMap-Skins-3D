@@ -34,4 +34,8 @@ public enum GameMode {
 	public static GameMode getById(String id) {
 		return BY_ID.get(id);
 	}
+
+	public String getId() {
+		return id;
+	}
 }

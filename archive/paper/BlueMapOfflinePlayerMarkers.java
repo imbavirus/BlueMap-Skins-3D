@@ -35,7 +35,8 @@ public final class BlueMapOfflinePlayerMarkers extends JavaPlugin implements Lis
 				BMCopy.jarResourceToWebApp(api, getClassLoader(), "style.css", "bmopm.css", false);
 				BMCopy.jarResourceToWebApp(api, getClassLoader(), "script.js", "bmopm.js", false);
 			} catch (IOException e) {
-				Singletons.getLogger().log(Level.SEVERE, "Failed to copy resources to BlueMap webapp!", e);
+				// Use plugin logger instead of Singletons since it might not be initialized yet
+				getLogger().log(Level.SEVERE, "Failed to copy resources to BlueMap webapp!", e);
 			}
 
 		});

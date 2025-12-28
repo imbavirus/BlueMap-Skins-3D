@@ -1,0 +1,26 @@
+modLoader="neoforge"
+loaderVersion="[1,)"
+license="MIT"
+
+[[mods]]
+modId="bluemapofflineplayermarkers"
+version="${file.jarVersion}"
+displayName="BlueMap Offline Player Markers"
+description="Adds markers where players have logged off to BlueMap"
+authors="TechnicJelle, Mark-255, Blue, Seercat3160"
+credits="Special thanks to all contributors"
+
+[[dependencies.bluemapofflineplayermarkers]]
+modId="neoforge"
+mandatory=true
+versionRange="[21.1.217,)"
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.bluemapofflineplayermarkers]]
+modId="bluemap"
+mandatory=true
+versionRange="[1,)"
+ordering="NONE"
+side="BOTH"
+

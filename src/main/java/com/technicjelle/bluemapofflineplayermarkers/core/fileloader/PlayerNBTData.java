@@ -26,6 +26,9 @@ public class PlayerNBTData implements PlayerData {
 	@NBTName("Dimension")
 	private Object dimension;
 
+	@NBTName("Rotation")
+	private float[] rotation;
+
 	public @Nullable GameMode getGameMode() {
 		return GameMode.getByValue(gameMode);
 	}
@@ -46,5 +49,14 @@ public class PlayerNBTData implements PlayerData {
 		// If world UUID isn't valid, try to find it some other way,
 		//  and if we can't find the world UUID, we return empty
 		return Singletons.getServer().guessWorldUUID(dimension);
+	}
+
+	@Override
+	public Optional<Vector3d> getRotation() {
+		if (rotation != null && rotation.length >= 2) {
+			// Minecraft stores rotation as [yaw, pitch], where yaw is horizontal and pitch is vertical
+			return Optional.of(new Vector3d(rotation[0], rotation[1], 0));
+		}
+		return Optional.empty();
 	}
 }

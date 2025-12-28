@@ -14,7 +14,9 @@
 	<url>https://github.com/TechnicJelle/BlueMapOfflinePlayerMarkers/</url>
 
 	<properties>
-		<java.version>16</java.version>
+		<java.version>21</java.version>
+		<minecraft.version>1.21.1</minecraft.version>
+		<neoforge.version>21.1.217</neoforge.version>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 	</properties>
 
@@ -80,13 +82,28 @@
 
 	<repositories>
 		<repository>
-			<id>papermc-repo</id>
-			<url>https://papermc.io/repo/repository/maven-public/</url>
+			<id>neoforge</id>
+			<name>NeoForge</name>
+			<url>https://maven.neoforged.net/releases</url>
+		</repository>
+		<repository>
+			<id>neoforge-snapshots</id>
+			<name>NeoForge Snapshots</name>
+			<url>https://maven.neoforged.net/snapshots</url>
 		</repository>
 		<repository>
 			<id>bluecolored-releases</id>
 			<name>BlueColored Repository</name>
 			<url>https://repo.bluecolored.de/releases</url>
+		</repository>
+		<repository>
+			<id>jitpack.io</id>
+			<url>https://jitpack.io</url>
+		</repository>
+		<repository>
+			<id>central</id>
+			<name>Maven Central</name>
+			<url>https://repo1.maven.org/maven2</url>
 		</repository>
 	</repositories>
 
@@ -109,12 +126,15 @@
 			<version>2.0</version>
 			<scope>compile</scope>
 		</dependency>
-		<dependency>
-			<groupId>com.destroystokyo.paper</groupId>
-			<artifactId>paper-api</artifactId>
-			<version>1.13.2-R0.1-SNAPSHOT</version>
-			<scope>provided</scope>
-		</dependency>
+		<!-- NeoForge dependency removed: NeoForge artifacts are not published in Maven format.
+		     They are designed for Gradle builds with NeoGradle plugin.
+		     Options:
+		     1. Switch to Gradle (recommended) - use NeoGradle plugin
+		     2. Install NeoForge jar manually to local Maven repo: 
+		        mvn install:install-file -Dfile=neoforge-${neoforge.version}.jar -DgroupId=net.neoforged -DartifactId=neoforge -Dversion=${neoforge.version} -Dpackaging=jar
+		     3. Use system scope pointing to local file (not recommended)
+		     The mod will compile if NeoForge classes are available at compile time via IDE or manual installation.
+		-->
 		<dependency>
 			<groupId>de.bluecolored.bluemap</groupId>
 			<artifactId>BlueMapAPI</artifactId>
@@ -130,12 +150,6 @@
 			<groupId>org.jetbrains</groupId>
 			<artifactId>annotations</artifactId>
 			<version>23.1.0</version>
-			<scope>compile</scope>
-		</dependency>
-		<dependency>
-			<groupId>org.bstats</groupId>
-			<artifactId>bstats-bukkit</artifactId>
-			<version>3.0.2</version>
 			<scope>compile</scope>
 		</dependency>
 	</dependencies>

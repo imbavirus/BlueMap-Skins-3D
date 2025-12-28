@@ -29,3 +29,25 @@ class LocaleDateTime extends HTMLElement {
 
 
 customElements.define("bmopm-datetime", LocaleDateTime);
+
+// Load 3D player model script if enabled
+(function() {
+	function loadPlayerModelScript() {
+		if (document.querySelector('.bmopm-3d-enabled') && !document.querySelector('script[src="bmopm-player-model.js"]')) {
+			const script = document.createElement('script');
+			script.src = 'bmopm-player-model.js';
+			document.head.appendChild(script);
+		}
+	}
+	
+	// Try immediately
+	loadPlayerModelScript();
+	
+	// Also try after a delay in case markers load later
+	setTimeout(loadPlayerModelScript, 1000);
+	
+	// Listen for marker updates
+	if (typeof bluemap !== 'undefined' && bluemap.events) {
+		bluemap.events.addEventListener('markersUpdated', loadPlayerModelScript);
+	}
+})();

@@ -32,6 +32,20 @@ public interface Config {
 	boolean hideBannedPlayers();
 
 	/**
+	 * @return true if 3D player models should be shown instead of icons
+	 */
+	default boolean showPlayerModels() {
+		return false;
+	}
+
+	/**
+	 * @return true if player models should have running animation
+	 */
+	default boolean animatePlayerModels() {
+		return true;
+	}
+
+	/**
 	 * @param playerUUID The player to check.
 	 * @return true if the player should be hidden
 	 */

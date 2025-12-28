@@ -19,40 +19,85 @@ public class BlueMapMarkerHandler implements MarkerHandler {
 	@Override
 	public void add(Player player, BlueMapAPI api) {
 		//If this player's visibility is disabled on the map, don't add the marker.
-		if (!api.getWebApp().getPlayerVisibility(player.getPlayerUUID())) return;
+		if (!api.getWebApp().getPlayerVisibility(player.getPlayerUUID())) {
+			Singletons.getLogger().info("Skipping marker for " + player.getPlayerName() + " - player visibility disabled on map");
+			return;
+		}
 
 		Config config = Singletons.getConfig();
 		//If this player's game mode is disabled on the map, don't add the marker.
-		if (config.isGameModeHidden(player.getPlayerData().getGameMode())) return;
+		if (config.isGameModeHidden(player.getPlayerData().getGameMode())) {
+			Singletons.getLogger().info("Skipping marker for " + player.getPlayerName() + " - game mode " + player.getPlayerData().getGameMode() + " is hidden");
+			return;
+		}
 
 		Server server = Singletons.getServer();
 		//If this player is banned and the config is set to hide banned players, don't add the marker.
-		if (config.hideBannedPlayers() && server.isPlayerBanned(player.getPlayerUUID())) return;
+		if (config.hideBannedPlayers() && server.isPlayerBanned(player.getPlayerUUID())) {
+			Singletons.getLogger().info("Skipping marker for " + player.getPlayerName() + " - player is banned and hideBannedPlayers is enabled");
+			return;
+		}
 
 		// Get BlueMapWorld for the position
 		Optional<UUID> worldUUID = player.getPlayerData().getWorldUUID();
-		if (worldUUID.isEmpty()) return;
+		if (worldUUID.isEmpty()) {
+			Singletons.getLogger().warning("Skipping marker for " + player.getPlayerName() + " - no world UUID found");
+			return;
+		}
 		BlueMapWorld blueMapWorld = api.getWorld(worldUUID.get()).orElse(null);
-		if (blueMapWorld == null) return;
+		if (blueMapWorld == null) {
+			Singletons.getLogger().warning("Skipping marker for " + player.getPlayerName() + " - BlueMap world not found for UUID: " + worldUUID.get());
+			return;
+		}
 		Vector3d position = player.getPlayerData().getPosition();
-		if (position == null) return;
+		if (position == null) {
+			Singletons.getLogger().warning("Skipping marker for " + player.getPlayerName() + " - no position data found");
+			return;
+		}
+		Vector3d basePosition = position;
+		
+		// For 3D models, position at feet level; for icons, at head level
+		if (config.showPlayerModels()) {
+			// Position at feet level for 3D model
+			position = basePosition;
+		} else {
+			// Add 1.8 to y to place the marker at the head-position of the player, like BlueMap does with its player-markers
+			position = basePosition.add(0, 1.8, 0);
+		}
 
-		// Add 1.8 to y to place the marker at the head-position of the player, like BlueMap does with its player-markers
-		position = position.add(0, 1.8, 0);
+		// Get rotation for 3D models
+		String rotationData = "";
+		Optional<Vector3d> rotation = player.getPlayerData().getRotation();
+		if (rotation.isPresent() && config.showPlayerModels()) {
+			Vector3d rot = rotation.get();
+			rotationData = String.format(" data-yaw=\"%.2f\" data-pitch=\"%.2f\"", rot.getX(), rot.getY());
+		}
 
 		// Create marker-template
+		String detailHtml = player.getPlayerName() + " <i>(offline)</i><br>"
+				+ "<bmopm-datetime data-timestamp=" + player.getLastPlayed().toEpochMilli() + "></bmopm-datetime>";
+		
+		if (config.showPlayerModels()) {
+			// Add 3D model container
+			detailHtml += "<div class=\"bmopm-3d-model\" data-player-uuid=\"" + player.getPlayerUUID() + "\"" 
+					+ rotationData + " data-animate=\"" + config.animatePlayerModels() + "\"></div>";
+		}
+		
 		POIMarker.Builder markerBuilder = POIMarker.builder()
 				.label(player.getPlayerName())
-				.detail(player.getPlayerName() + " <i>(offline)</i><br>"
-						+ "<bmopm-datetime data-timestamp=" + player.getLastPlayed().toEpochMilli() + "></bmopm-datetime>")
-				.styleClasses("bmopm-offline-player")
+				.detail(detailHtml)
+				.styleClasses("bmopm-offline-player" + (config.showPlayerModels() ? " bmopm-3d-enabled" : ""))
 				.position(position);
 
 		// Create an icon and marker for each map of this world
 		// We need to create a separate marker per map, because the map-storage that the icon is saved in
 		// is different for each map
+		int mapCount = 0;
 		for (BlueMapMap map : blueMapWorld.getMaps()) {
-			markerBuilder.icon(BMSkin.getPlayerHeadIconAddress(api, player.getPlayerUUID(), map), 0, 0); // centered with CSS instead
+			if (!config.showPlayerModels()) {
+				// Only set icon if not using 3D models
+				markerBuilder.icon(BMSkin.getPlayerHeadIconAddress(api, player.getPlayerUUID(), map), 0, 0); // centered with CSS instead
+			}
 
 			// get marker-set (or create new marker set if none found)
 			MarkerSet markerSet = map.getMarkerSets().computeIfAbsent(Config.MARKER_SET_ID, id -> MarkerSet.builder()
@@ -63,9 +108,10 @@ public class BlueMapMarkerHandler implements MarkerHandler {
 
 			// add marker
 			markerSet.put(player.getPlayerUUID().toString(), markerBuilder.build());
+			mapCount++;
 		}
 
-		Singletons.getLogger().info("Marker for " + player.getPlayerName() + " added");
+		Singletons.getLogger().info("Marker for " + player.getPlayerName() + " (" + player.getPlayerUUID() + ") added to " + mapCount + " map(s) at position " + position);
 	}
 
 	@Override

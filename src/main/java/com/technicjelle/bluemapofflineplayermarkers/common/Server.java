@@ -40,10 +40,14 @@ public interface Server {
 				Map<UUID, String> map = _gson.fromJson(reader, new TypeToken<Map<UUID, String>>() {}.getType());
 				if (map != null) {
 					_cachedPlayerNames.putAll(map);
+					Singletons.getLogger().info("Loaded " + map.size() + " cached player name(s) from " + cacheFile.getAbsolutePath());
 				}
 			} catch (IOException e) {
+				Singletons.getLogger().warning("Failed to load cached player names from " + cacheFile.getAbsolutePath() + ": " + e.getMessage());
 				throw new RuntimeException(e);
 			}
+		} else {
+			Singletons.getLogger().info("No cached player names file found at " + cacheFile.getAbsolutePath() + ", starting with empty cache");
 		}
 	}
 

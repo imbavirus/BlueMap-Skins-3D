@@ -12,4 +12,11 @@ public interface PlayerData {
 	Vector3d getPosition();
 
 	Optional<UUID> getWorldUUID();
+
+	/**
+	 * @return Player rotation in degrees (yaw, pitch). Yaw is horizontal rotation (0-360), pitch is vertical (-90 to 90).
+	 */
+	default Optional<Vector3d> getRotation() {
+		return Optional.empty();
+	}
 }

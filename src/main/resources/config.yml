@@ -16,3 +16,10 @@ HiddenGameModes:
 
 # If you want to show players who are banned, set this to false.
 HideBannedPlayers: true
+
+# Show 3D player models instead of icons (requires Three.js, which BlueMap includes)
+# When enabled, players will be displayed as 3D models with their actual skins
+ShowPlayerModels: false
+
+# Animate player models (running animation when ShowPlayerModels is true)
+AnimatePlayerModels: true

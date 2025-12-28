@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 import java.util.logging.Level;
 import java.util.stream.Stream;
@@ -19,19 +20,22 @@ public class FileMarkerLoader {
 	private static final BlueNBT nbt = new BlueNBT();
 
 	public static void loadOfflineMarkers() {
+		Singletons.getLogger().info("=== Starting offline marker loading process ===");
 		Path playerDataFolder = Singletons.getServer().getPlayerDataFolder();
+		Singletons.getLogger().info("Player data folder: " + playerDataFolder);
 
 		//Return if playerdata is missing for some reason.
 		if (!Files.exists(playerDataFolder) || !Files.isDirectory(playerDataFolder)) {
-			Singletons.getLogger().severe("Playerdata folder not found, skipping loading of offline markers from storage");
+			Singletons.getLogger().severe("Playerdata folder not found at: " + playerDataFolder + ", skipping loading of offline markers from storage");
 			return;
 		}
 
 		BlueMapAPI api;
 		if (Singletons.isBlueMapAPIPresent()) {
-			if (BlueMapAPI.getInstance().isPresent())
+			if (BlueMapAPI.getInstance().isPresent()) {
 				api = BlueMapAPI.getInstance().get();
-			else {
+				Singletons.getLogger().info("BlueMapAPI instance obtained successfully");
+			} else {
 				Singletons.getLogger().warning("BlueMapAPI not available, skipping loading of offline markers from storage");
 				return;
 			}
@@ -40,16 +44,30 @@ public class FileMarkerLoader {
 			api = null;
 		}
 
+		int markerCount = 0;
+		int skippedCount = 0;
 		try (Stream<Path> playerDataFiles = Files.list(playerDataFolder)) {
-			playerDataFiles.filter(p -> p.toString().endsWith(".dat")).forEach(p -> loadOfflineMarker(p, api));
+			List<Path> datFiles = playerDataFiles.filter(p -> p.toString().endsWith(".dat")).toList();
+			Singletons.getLogger().info("Found " + datFiles.size() + " player data file(s) to process");
+			
+			for (Path p : datFiles) {
+				if (loadOfflineMarker(p, api)) {
+					markerCount++;
+				} else {
+					skippedCount++;
+				}
+			}
+			
+			Singletons.getLogger().info("=== Offline marker loading complete ===");
+			Singletons.getLogger().info("Markers added: " + markerCount + ", Markers skipped: " + skippedCount);
 		} catch (IOException e) {
 			Singletons.getLogger().log(Level.SEVERE, "Failed to stream playerdata", e);
 		}
 	}
 
-	private static void loadOfflineMarker(Path playerDataFile, BlueMapAPI api) {
+	private static boolean loadOfflineMarker(Path playerDataFile, BlueMapAPI api) {
 		final String fileName = playerDataFile.getFileName().toString();
-		Singletons.getLogger().info("Loading playerdata file: " + fileName);
+		Singletons.getLogger().info("Processing playerdata file: " + fileName);
 
 		final String uuidString = fileName.replace(".dat", "");
 		final UUID playerUUID;
@@ -57,22 +75,25 @@ public class FileMarkerLoader {
 			playerUUID = UUID.fromString(uuidString);
 		} catch (IllegalArgumentException e) {
 			Singletons.getLogger().warning("Invalid playerdata filename: " + fileName + ", skipping");
-			return;
+			return false;
 		}
 
 		if (playerDataFile.toFile().length() == 0) {
 			Singletons.getLogger().warning("Playerdata file " + fileName + " is empty, skipping");
-			return;
+			return false;
 		}
 
-		if (Singletons.getServer().isPlayerOnline(playerUUID)) return; // don't add markers for online players
+		if (Singletons.getServer().isPlayerOnline(playerUUID)) {
+			Singletons.getLogger().info("Player " + playerUUID + " is online, skipping marker");
+			return false; // don't add markers for online players
+		}
 
 		if (Singletons.getConfig().checkPlayerLastPlayed(playerUUID)) {
 			String playerName = Singletons.getServer().getPlayerName(playerUUID);
 			Instant lastPlayed = Singletons.getServer().getPlayerLastPlayed(playerUUID);
-			Singletons.getLogger().finer("Player " + playerName + " (" + playerUUID + ") was last online at " + lastPlayed.toString() + ",\n" +
-					"which is more than " + Singletons.getConfig().getExpireTimeInHours() + " hours ago, so not adding marker");
-			return;
+			Singletons.getLogger().info("Player " + playerName + " (" + playerUUID + ") was last online at " + lastPlayed.toString() + 
+					", which is more than " + Singletons.getConfig().getExpireTimeInHours() + " hours ago, so not adding marker");
+			return false;
 		}
 
 		try (GZIPInputStream in = new GZIPInputStream(Files.newInputStream(playerDataFile))) {
@@ -81,8 +102,10 @@ public class FileMarkerLoader {
 
 			Player player = new Player(playerUUID, playerNBTData);
 			Singletons.getMarkerHandler().add(player, api);
+			return true;
 		} catch (IOException e) {
 			Singletons.getLogger().log(Level.SEVERE, "Failed to read playerdata file " + fileName, e);
+			return false;
 		}
 	}
 }
