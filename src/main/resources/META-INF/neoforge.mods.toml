@@ -1,10 +1,10 @@
-modLoader="neoforge"
-loaderVersion="[1,)"
+modLoader="javafml"
+loaderVersion="[4,)"
 license="MIT"
 
 [[mods]]
 modId="bluemapofflineplayermarkers"
-version="${file.jarVersion}"
+version="3.0"
 displayName="BlueMap Offline Player Markers"
 description="Adds markers where players have logged off to BlueMap"
 authors="TechnicJelle, Mark-255, Blue, Seercat3160"

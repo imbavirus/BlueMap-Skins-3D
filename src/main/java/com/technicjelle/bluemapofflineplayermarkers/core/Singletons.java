@@ -3,8 +3,7 @@ package com.technicjelle.bluemapofflineplayermarkers.core;
 import com.technicjelle.bluemapofflineplayermarkers.common.Config;
 import com.technicjelle.bluemapofflineplayermarkers.common.Server;
 import com.technicjelle.bluemapofflineplayermarkers.core.markerhandler.MarkerHandler;
-
-import java.util.logging.Logger;
+import org.apache.logging.log4j.Logger;
 
 public class Singletons {
 	private static Server server;

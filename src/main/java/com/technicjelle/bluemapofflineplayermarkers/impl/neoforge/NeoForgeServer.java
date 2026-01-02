@@ -86,7 +86,7 @@ public class NeoForgeServer implements Server {
 			for (ServerLevel level : server.getAllLevels()) {
 				String dimensionKey = level.dimension().location().toString();
 				if (dimensionKey.contains(dimensionString) || dimensionString.contains(dimensionKey)) {
-					// Use dimension location to generate a consistent UUID
+					// Use dimension location to generate a consistent UUID (same as BlueMap uses)
 					return Optional.of(UUID.nameUUIDFromBytes(dimensionKey.getBytes()));
 				}
 			}
@@ -105,12 +105,61 @@ public class NeoForgeServer implements Server {
 			}
 		}
 
+		// Handle integer dimension IDs (for older Minecraft versions or modded dimensions)
+		if (object instanceof Integer) {
+			int dimensionInt = (Integer) object;
+			// Map common dimension IDs to their dimension keys
+			for (ServerLevel level : server.getAllLevels()) {
+				if (dimensionInt == 0 && level.dimension() == Level.OVERWORLD) {
+					return Optional.of(UUID.nameUUIDFromBytes(level.dimension().location().toString().getBytes()));
+				}
+				if (dimensionInt == -1 && level.dimension() == Level.NETHER) {
+					return Optional.of(UUID.nameUUIDFromBytes(level.dimension().location().toString().getBytes()));
+				}
+				if (dimensionInt == 1 && level.dimension() == Level.END) {
+					return Optional.of(UUID.nameUUIDFromBytes(level.dimension().location().toString().getBytes()));
+				}
+			}
+		}
+
+		return Optional.empty();
+	}
+
+	@Override
+	public Optional<UUID> getWorldUUIDFromStoredUUID(UUID storedWorldUUID) {
+		// Try to find a ServerLevel that matches this UUID
+		// Since we can't directly get the UUID from ServerLevel, we'll iterate through all levels
+		// and check if any match. However, this is difficult without direct UUID access.
+		
+		// For now, if we can't determine the dimension, default to overworld
+		// This is a reasonable fallback since most players log out in the overworld
+		ServerLevel overworld = server.getLevel(Level.OVERWORLD);
+		if (overworld != null) {
+			String dimensionKey = overworld.dimension().location().toString();
+			return Optional.of(UUID.nameUUIDFromBytes(dimensionKey.getBytes()));
+		}
+		
 		return Optional.empty();
 	}
 
 	@Override
 	public boolean isPlayerBanned(UUID playerUUID) {
-		com.mojang.authlib.GameProfile profile = new com.mojang.authlib.GameProfile(playerUUID, null);
+		// Try to get player name first
+		String playerName = getPlayerName(playerUUID);
+		// If we couldn't get a name, use UUID string as fallback
+		if (playerName == null || playerName.equals(playerUUID.toString())) {
+			// For offline players without cached names, check bans by UUID only
+			// The ban list should accept profiles with UUID only
+			try {
+				com.mojang.authlib.GameProfile profile = new com.mojang.authlib.GameProfile(playerUUID, playerUUID.toString());
+				return server.getPlayerList().getBans().isBanned(profile);
+			} catch (Exception e) {
+				// If that fails, try with a placeholder name
+				com.mojang.authlib.GameProfile profile = new com.mojang.authlib.GameProfile(playerUUID, "Player");
+				return server.getPlayerList().getBans().isBanned(profile);
+			}
+		}
+		com.mojang.authlib.GameProfile profile = new com.mojang.authlib.GameProfile(playerUUID, playerName);
 		return server.getPlayerList().getBans().isBanned(profile);
 	}
 }

@@ -11,8 +11,11 @@ out/
 # Compiled class file
 *.class
 
-# Log file
+# Log files
 *.log
+*.log.gz
+*.log.*
+logs/
 
 # BlueJ files
 *.ctxt
@@ -123,3 +126,24 @@ testserver/
 
 # Player Name Caches
 cachedPlayerNames.json
+
+# PowerShell scripts
+*.ps1
+
+# Debug files
+debug*.log
+debug*.log.gz
+**/debug/
+**/Debug/
+*.debug
+
+# Additional build artifacts
+bin/
+dist/
+out/
+*.o
+*.obj
+*.exe
+*.dll
+*.so
+*.dylib

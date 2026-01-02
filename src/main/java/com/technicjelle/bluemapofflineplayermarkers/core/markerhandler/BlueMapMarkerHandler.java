@@ -41,17 +41,34 @@ public class BlueMapMarkerHandler implements MarkerHandler {
 		// Get BlueMapWorld for the position
 		Optional<UUID> worldUUID = player.getPlayerData().getWorldUUID();
 		if (worldUUID.isEmpty()) {
-			Singletons.getLogger().warning("Skipping marker for " + player.getPlayerName() + " - no world UUID found");
+			Singletons.getLogger().warn("Skipping marker for " + player.getPlayerName() + " - no world UUID found");
 			return;
 		}
+		
+		// Try to get world by UUID first
 		BlueMapWorld blueMapWorld = api.getWorld(worldUUID.get()).orElse(null);
+		
+		// If not found, try to find overworld by iterating through all maps (common fallback)
 		if (blueMapWorld == null) {
-			Singletons.getLogger().warning("Skipping marker for " + player.getPlayerName() + " - BlueMap world not found for UUID: " + worldUUID.get());
+			Singletons.getLogger().info("World not found by UUID " + worldUUID.get() + ", trying to find overworld...");
+			for (BlueMapMap map : api.getMaps()) {
+				BlueMapWorld world = map.getWorld();
+				// Check if this map is for the overworld (common case)
+				if (map.getId().contains("world") && !map.getId().contains("nether") && !map.getId().contains("end")) {
+					blueMapWorld = world;
+					Singletons.getLogger().info("Using overworld map as fallback: " + map.getId());
+					break;
+				}
+			}
+		}
+		
+		if (blueMapWorld == null) {
+			Singletons.getLogger().warn("Skipping marker for " + player.getPlayerName() + " - BlueMap world not found for UUID: " + worldUUID.get());
 			return;
 		}
 		Vector3d position = player.getPlayerData().getPosition();
 		if (position == null) {
-			Singletons.getLogger().warning("Skipping marker for " + player.getPlayerName() + " - no position data found");
+			Singletons.getLogger().warn("Skipping marker for " + player.getPlayerName() + " - no position data found");
 			return;
 		}
 		Vector3d basePosition = position;

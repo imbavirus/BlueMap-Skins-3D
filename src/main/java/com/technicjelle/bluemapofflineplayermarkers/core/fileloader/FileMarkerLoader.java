@@ -12,7 +12,6 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
-import java.util.logging.Level;
 import java.util.stream.Stream;
 import java.util.zip.GZIPInputStream;
 
@@ -26,7 +25,7 @@ public class FileMarkerLoader {
 
 		//Return if playerdata is missing for some reason.
 		if (!Files.exists(playerDataFolder) || !Files.isDirectory(playerDataFolder)) {
-			Singletons.getLogger().severe("Playerdata folder not found at: " + playerDataFolder + ", skipping loading of offline markers from storage");
+			Singletons.getLogger().error("Playerdata folder not found at: " + playerDataFolder + ", skipping loading of offline markers from storage");
 			return;
 		}
 
@@ -36,7 +35,7 @@ public class FileMarkerLoader {
 				api = BlueMapAPI.getInstance().get();
 				Singletons.getLogger().info("BlueMapAPI instance obtained successfully");
 			} else {
-				Singletons.getLogger().warning("BlueMapAPI not available, skipping loading of offline markers from storage");
+				Singletons.getLogger().warn("BlueMapAPI not available, skipping loading of offline markers from storage");
 				return;
 			}
 		} else {
@@ -61,7 +60,7 @@ public class FileMarkerLoader {
 			Singletons.getLogger().info("=== Offline marker loading complete ===");
 			Singletons.getLogger().info("Markers added: " + markerCount + ", Markers skipped: " + skippedCount);
 		} catch (IOException e) {
-			Singletons.getLogger().log(Level.SEVERE, "Failed to stream playerdata", e);
+			Singletons.getLogger().error("Failed to stream playerdata", e);
 		}
 	}
 
@@ -74,12 +73,12 @@ public class FileMarkerLoader {
 		try {
 			playerUUID = UUID.fromString(uuidString);
 		} catch (IllegalArgumentException e) {
-			Singletons.getLogger().warning("Invalid playerdata filename: " + fileName + ", skipping");
+			Singletons.getLogger().warn("Invalid playerdata filename: " + fileName + ", skipping");
 			return false;
 		}
 
 		if (playerDataFile.toFile().length() == 0) {
-			Singletons.getLogger().warning("Playerdata file " + fileName + " is empty, skipping");
+			Singletons.getLogger().warn("Playerdata file " + fileName + " is empty, skipping");
 			return false;
 		}
 
@@ -104,7 +103,7 @@ public class FileMarkerLoader {
 			Singletons.getMarkerHandler().add(player, api);
 			return true;
 		} catch (IOException e) {
-			Singletons.getLogger().log(Level.SEVERE, "Failed to read playerdata file " + fileName, e);
+			Singletons.getLogger().error("Failed to read playerdata file " + fileName, e);
 			return false;
 		}
 	}

@@ -1,0 +1,9 @@
+Manifest-Version: 1.0
+Specification-Title: BlueMapOfflinePlayerMarkers
+Specification-Vendor: TechnicJelle
+Specification-Version: 3.0
+Implementation-Title: BlueMapOfflinePlayerMarkers
+Implementation-Vendor: TechnicJelle
+Implementation-Version: 3.0
+Multi-Release: false
+

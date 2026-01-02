@@ -21,24 +21,39 @@ import net.neoforged.neoforge.event.server.ServerStartingEvent;
 import net.neoforged.neoforge.event.server.ServerStoppingEvent;
 import net.neoforged.neoforge.server.ServerLifecycleHooks;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import java.io.IOException;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Consumer;
-import java.util.logging.Logger;
 
 @Mod(BlueMapOfflinePlayerMarkers.MOD_ID)
 public class BlueMapOfflinePlayerMarkers {
 	public static final String MOD_ID = "bluemapofflineplayermarkers";
-	private static final Logger LOGGER = Logger.getLogger(MOD_ID);
+	private static final Logger LOGGER = LogManager.getLogger();
+
+	// Static initializer to log when class is loaded
+	static {
+		try {
+			LOGGER.info("BlueMapOfflinePlayerMarkers class loaded!");
+		} catch (Exception e) {
+			System.err.println("[BMOPM] ERROR in static initializer: " + e.getMessage());
+			e.printStackTrace();
+		}
+	}
 	
 	private NeoForgeConfig config;
 	private UpdateChecker updateChecker;
 
 	public BlueMapOfflinePlayerMarkers(ModContainer modContainer) {
 		LOGGER.info("BlueMap Offline Player Markers mod initializing...");
-		NeoForge.EVENT_BUS.register(this);
-		LOGGER.info("Registered with NeoForge event bus");
+		// Register FML lifecycle events (like FMLCommonSetupEvent) on the mod event bus
+		modContainer.getEventBus().register(new ModEventHandler());
+		// Register game events (like ServerStartingEvent, PlayerEvent) on the NeoForge event bus
+		NeoForge.EVENT_BUS.register(new NeoForgeEventHandler());
+		LOGGER.info("Registered with mod and NeoForge event buses");
 		
 		// Register BlueMap API listeners
 		BlueMapAPI.onEnable(api -> {
@@ -52,69 +67,118 @@ public class BlueMapOfflinePlayerMarkers {
 				LOGGER.info("Copied player-model.js to BlueMap webapp");
 				LOGGER.info("All resources successfully copied to BlueMap webapp");
 			} catch (IOException e) {
-				LOGGER.severe("Failed to copy resources to BlueMap webapp!");
-				e.printStackTrace();
+				LOGGER.error("Failed to copy resources to BlueMap webapp!", e);
 			}
 		});
 		LOGGER.info("BlueMap API enable listener registered");
 	}
 
-	@SubscribeEvent
-	public void onCommonSetup(FMLCommonSetupEvent event) {
-		LOGGER.info("Common setup event received - initializing config and update checker...");
-		config = new NeoForgeConfig();
-		LOGGER.info("Config initialized");
-		updateChecker = new UpdateChecker("TechnicJelle", "BlueMapOfflinePlayerMarkers", "3.0");
-		updateChecker.checkAsync();
-		LOGGER.info("Update checker started");
-	}
-
-	@SubscribeEvent
-	public void onServerStarting(ServerStartingEvent event) {
-		LOGGER.info("Server starting event received - initializing mod...");
-		MinecraftServer server = event.getServer();
-		LOGGER.info("Initializing singletons (server, logger, config, marker handler, API status)...");
-		Singletons.init(
-			new NeoForgeServer(server),
-			LOGGER,
-			config,
-			new BlueMapMarkerHandler(),
-			new com.technicjelle.bluemapofflineplayermarkers.core.BMApiStatus()
-		);
-		LOGGER.info("Singletons initialized successfully");
-		Singletons.getServer().startUp();
-		LOGGER.info("Server startup completed");
-
-		// Register BlueMap API enable/disable listeners
-		LOGGER.info("Registering BlueMap API enable/disable listeners...");
-		BlueMapAPI.onEnable(onEnableListener);
-		BlueMapAPI.onDisable(onDisableListener);
-		LOGGER.info("BlueMap API listeners registered");
-		
-		// Check if BlueMap is already enabled
-		Optional<BlueMapAPI> api = BlueMapAPI.getInstance();
-		if (api.isPresent()) {
-			LOGGER.info("BlueMap API is already available, triggering enable listener...");
-			onEnableListener.accept(api.get());
-		} else {
-			LOGGER.info("BlueMap API not yet available, will wait for it to enable...");
+	// Inner class for mod event bus events (FML lifecycle events)
+	private class ModEventHandler {
+		@SubscribeEvent
+		public void onCommonSetup(FMLCommonSetupEvent event) {
+			LOGGER.info("Common setup event received - initializing config and update checker...");
+			config = new NeoForgeConfig();
+			LOGGER.info("Config initialized");
+			updateChecker = new UpdateChecker("TechnicJelle", "BlueMapOfflinePlayerMarkers", "3.0");
+			updateChecker.checkAsync();
+			LOGGER.info("Update checker started");
 		}
 	}
 
-	@SubscribeEvent
-	public void onServerStopping(ServerStoppingEvent event) {
-		BlueMapAPI.unregisterListener(onEnableListener);
-		BlueMapAPI.unregisterListener(onDisableListener);
-		Singletons.getServer().shutDown();
-		LOGGER.info("BlueMap Offline Player Markers mod disabled!");
-		Singletons.cleanup();
+	// Inner class for NeoForge event bus events (game events)
+	private class NeoForgeEventHandler {
+		@SubscribeEvent
+		public void onServerStarting(ServerStartingEvent event) {
+			LOGGER.info("Server starting event received - initializing mod...");
+			MinecraftServer server = event.getServer();
+			LOGGER.info("Initializing singletons (server, logger, config, marker handler, API status)...");
+			Singletons.init(
+				new NeoForgeServer(server),
+				LOGGER,
+				config,
+				new BlueMapMarkerHandler(),
+				new com.technicjelle.bluemapofflineplayermarkers.core.BMApiStatus()
+			);
+			LOGGER.info("Singletons initialized successfully");
+			Singletons.getServer().startUp();
+			LOGGER.info("Server startup completed");
+
+			// Register BlueMap API enable/disable listeners
+			LOGGER.info("Registering BlueMap API enable/disable listeners...");
+			BlueMapAPI.onEnable(onEnableListener);
+			BlueMapAPI.onDisable(onDisableListener);
+			LOGGER.info("BlueMap API listeners registered");
+			
+			// Check if BlueMap is already enabled
+			Optional<BlueMapAPI> api = BlueMapAPI.getInstance();
+			if (api.isPresent()) {
+				LOGGER.info("BlueMap API is already available, triggering enable listener...");
+				onEnableListener.accept(api.get());
+			} else {
+				LOGGER.info("BlueMap API not yet available, will wait for it to enable...");
+			}
+		}
+
+		@SubscribeEvent
+		public void onServerStopping(ServerStoppingEvent event) {
+			BlueMapAPI.unregisterListener(onEnableListener);
+			BlueMapAPI.unregisterListener(onDisableListener);
+			Singletons.getServer().shutDown();
+			LOGGER.info("BlueMap Offline Player Markers mod disabled!");
+			Singletons.cleanup();
+		}
+
+		@SubscribeEvent(priority = EventPriority.LOWEST)
+		public void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
+			if (event.getEntity() instanceof ServerPlayer player) {
+				UUID playerUUID = player.getUUID();
+
+				// Run asynchronously to avoid blocking the server
+				Thread markerRemovalThread = new Thread(() -> {
+					Optional<BlueMapAPI> api = BlueMapAPI.getInstance();
+					if (api.isEmpty()) {
+						Singletons.getLogger().warn("BlueMap is not loaded, not removing marker for " + player.getGameProfile().getName());
+						return;
+					}
+
+					Singletons.getMarkerHandler().remove(playerUUID, api.get());
+				});
+				markerRemovalThread.setDaemon(true);
+				markerRemovalThread.start();
+			}
+		}
+
+		@SubscribeEvent(priority = EventPriority.LOWEST)
+		public void onPlayerLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
+			if (event.getEntity() instanceof ServerPlayer player) {
+				UUID playerUUID = player.getUUID();
+
+				// Run asynchronously to avoid blocking the server
+				Thread markerAdditionThread = new Thread(() -> {
+					PlayerNeoForgeData playerNeoForgeData = new PlayerNeoForgeData(player);
+					Player playerToAdd = new Player(playerUUID, playerNeoForgeData);
+
+					Optional<BlueMapAPI> api = BlueMapAPI.getInstance();
+					if (api.isEmpty()) {
+						Singletons.getLogger().warn("BlueMap is not loaded, not adding marker for " + player.getGameProfile().getName());
+						return;
+					}
+
+					Singletons.getMarkerHandler().add(playerToAdd, api.get());
+				});
+				markerAdditionThread.setDaemon(true);
+				markerAdditionThread.start();
+			}
+		}
 	}
 
 	final Consumer<BlueMapAPI> onEnableListener = api -> {
 		LOGGER.info("========================================");
 		LOGGER.info("API Ready! BlueMap Offline Player Markers mod enabled!");
 		LOGGER.info("========================================");
-		updateChecker.logUpdateMessage(Singletons.getLogger());
+		// Note: UpdateChecker.logUpdateMessage() expects java.util.logging.Logger
+		// Since we're using Log4j, we skip the update message logging for now
 
 		LOGGER.info("Loading configuration...");
 		config.load();
@@ -135,7 +199,7 @@ public class BlueMapOfflinePlayerMarkers {
 						FileMarkerLoader.loadOfflineMarkers();
 						LOGGER.info("Finished loading offline player markers");
 					} catch (InterruptedException e) {
-						LOGGER.warning("Marker loader thread was interrupted");
+						LOGGER.warn("Marker loader thread was interrupted");
 						Thread.currentThread().interrupt();
 					}
 				});
@@ -145,55 +209,12 @@ public class BlueMapOfflinePlayerMarkers {
 				LOGGER.info("Marker loader thread started");
 			});
 		} else {
-			LOGGER.warning("Minecraft server is null, cannot load offline markers");
+			LOGGER.warn("Minecraft server is null, cannot load offline markers");
 		}
 	};
 
 	final Consumer<BlueMapAPI> onDisableListener = api -> {
 		Singletons.getLogger().info("API disabled! BlueMap Offline Player Markers shutting down...");
 	};
-
-	@SubscribeEvent(priority = EventPriority.LOWEST)
-	public void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
-		if (event.getEntity() instanceof ServerPlayer player) {
-			UUID playerUUID = player.getUUID();
-
-			// Run asynchronously to avoid blocking the server
-			Thread markerRemovalThread = new Thread(() -> {
-				Optional<BlueMapAPI> api = BlueMapAPI.getInstance();
-				if (api.isEmpty()) {
-					Singletons.getLogger().warning("BlueMap is not loaded, not removing marker for " + player.getGameProfile().getName());
-					return;
-				}
-
-				Singletons.getMarkerHandler().remove(playerUUID, api.get());
-			});
-			markerRemovalThread.setDaemon(true);
-			markerRemovalThread.start();
-		}
-	}
-
-	@SubscribeEvent(priority = EventPriority.LOWEST)
-	public void onPlayerLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
-		if (event.getEntity() instanceof ServerPlayer player) {
-			UUID playerUUID = player.getUUID();
-
-			// Run asynchronously to avoid blocking the server
-			Thread markerAdditionThread = new Thread(() -> {
-				PlayerNeoForgeData playerNeoForgeData = new PlayerNeoForgeData(player);
-				Player playerToAdd = new Player(playerUUID, playerNeoForgeData);
-
-				Optional<BlueMapAPI> api = BlueMapAPI.getInstance();
-				if (api.isEmpty()) {
-					Singletons.getLogger().warning("BlueMap is not loaded, not adding marker for " + player.getGameProfile().getName());
-					return;
-				}
-
-				Singletons.getMarkerHandler().add(playerToAdd, api.get());
-			});
-			markerAdditionThread.setDaemon(true);
-			markerAdditionThread.start();
-		}
-	}
 }
 

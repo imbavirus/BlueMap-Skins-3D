@@ -13,23 +13,28 @@ configurations {
         exclude group: 'org.objectweb.asm'
     }
     shadow {
-        extendsFrom runtimeClasspath
         exclude group: 'org.ow2.asm'
         exclude group: 'org.objectweb.asm'
-        exclude group: 'io.netty'
-        exclude group: 'org.apache.logging.log4j'
-        // Exclude transitive dependencies that conflict with Java module system
-        // Note: NeoForge is kept for compilation but excluded from jar via file patterns
-        exclude group: 'com.mojang', module: 'brigadier'
-        exclude group: 'com.google.j2objc', module: 'j2objc-annotations'
-        exclude group: 'com.sun.jna'
-        exclude group: 'org.spongepowered', module: 'mixin'
     }
     runtimeClasspath {
         exclude group: 'org.ow2.asm'
         exclude group: 'org.objectweb.asm'
         exclude group: 'io.netty'
+        exclude group: 'org.checkerframework'
+        exclude group: 'org.apache.maven'
+        exclude group: 'com.google.code.findbugs', module: 'jsr305'
         exclude group: 'org.apache.logging.log4j'
+        exclude group: 'it.unimi.dsi', module: 'fastutil'
+        exclude group: 'org.antlr', module: 'antlr4-runtime'
+        exclude group: 'com.mojang', module: 'brigadier'
+        exclude group: 'com.google.j2objc', module: 'j2objc-annotations'
+        exclude group: 'com.electronwill.nightconfig'
+        exclude group: 'org.joml'
+        exclude group: 'org.spongepowered'
+        exclude group: 'org.jline'
+        exclude group: 'org.codehaus.plexus'
+        exclude group: 'com.mojang', module: 'authlib'
+        exclude group: 'com.machinezoo.noexception'
     }
 }
 
@@ -52,48 +57,34 @@ repositories {
 }
 
 dependencies {
-    implementation 'net.neoforged:neoforge:21.1.217'
+    // NeoForge is provided at runtime, only needed for compilation
+    compileOnly 'net.neoforged:neoforge:21.1.217'
     
     // BlueMap API (provided at runtime, but needed for testing)
     compileOnly 'de.bluecolored.bluemap:BlueMapAPI:2.7.2'
-    // For test runs, we need it at runtime too
-    testImplementation 'de.bluecolored.bluemap:BlueMapAPI:2.7.2'
+    // For test runs, we can add it as testCompileOnly so it's available for tests
+    testCompileOnly 'de.bluecolored.bluemap:BlueMapAPI:2.7.2'
     
-    // Utilities - exclude transitive dependencies that conflict with module system
+    // Utilities - these need to be shaded into the JAR
+    // Exclude NeoForge transitive dependencies to avoid module conflicts
     implementation('com.technicjelle:UpdateChecker:2.5.1') {
-        exclude group: 'com.mojang', module: 'brigadier'
-        exclude group: 'com.google.j2objc', module: 'j2objc-annotations'
-        exclude group: 'com.sun.jna', module: 'jna'
-        exclude group: 'com.sun.jna', module: 'jna-platform'
-        exclude group: 'org.spongepowered', module: 'mixin'
-        exclude group: 'net.neoforged', module: 'fml'
+        exclude group: 'io.netty'
+        exclude group: 'net.neoforged'
+        exclude group: 'cpw.mods'
     }
     implementation('com.technicjelle:BMUtils:4.2.1') {
-        exclude group: 'com.mojang', module: 'brigadier'
-        exclude group: 'com.google.j2objc', module: 'j2objc-annotations'
-        exclude group: 'com.sun.jna', module: 'jna'
-        exclude group: 'com.sun.jna', module: 'jna-platform'
-        exclude group: 'org.spongepowered', module: 'mixin'
-        exclude group: 'net.neoforged', module: 'fml'
+        exclude group: 'io.netty'
+        exclude group: 'net.neoforged'
+        exclude group: 'cpw.mods'
     }
     implementation('com.technicjelle:MCUtils:2.0') {
-        exclude group: 'com.mojang', module: 'brigadier'
-        exclude group: 'com.google.j2objc', module: 'j2objc-annotations'
-        exclude group: 'com.sun.jna', module: 'jna'
-        exclude group: 'com.sun.jna', module: 'jna-platform'
-        exclude group: 'org.spongepowered', module: 'mixin'
-        exclude group: 'net.neoforged', module: 'fml'
+        exclude group: 'io.netty'
+        exclude group: 'net.neoforged'
+        exclude group: 'cpw.mods'
     }
     
-    // BlueNBT - exclude transitive dependencies that conflict with module system
-    implementation('de.bluecolored.bluenbt:BlueNBT:2.3.0') {
-        exclude group: 'com.mojang', module: 'brigadier'
-        exclude group: 'com.google.j2objc', module: 'j2objc-annotations'
-        exclude group: 'com.sun.jna', module: 'jna'
-        exclude group: 'com.sun.jna', module: 'jna-platform'
-        exclude group: 'org.spongepowered', module: 'mixin'
-        exclude group: 'net.neoforged', module: 'fml'
-    }
+    // BlueNBT - provided by BlueMap at runtime, so we use compileOnly
+    compileOnly 'de.bluecolored.bluenbt:BlueNBT:2.3.0'
     
     // Annotations
     implementation 'org.jetbrains:annotations:23.1.0'
@@ -116,7 +107,11 @@ jar {
             'Specification-Version'   : project.version,
             'Implementation-Title'    : project.name,
             'Implementation-Vendor'  : 'TechnicJelle',
-            'Implementation-Version' : project.version
+            'Implementation-Version' : project.version,
+            'Multi-Release'          : 'false'
+            // Note: We intentionally do NOT set Automatic-Module-Name
+            // to prevent Java from treating this as a named module
+            // Multi-Release: false also helps prevent module detection
         ])
     }
 }
@@ -124,88 +119,114 @@ jar {
 shadowJar {
     archiveClassifier = ''
     
-    // Use a filtered configuration that excludes problematic dependencies
-    configurations = [project.configurations.shadow]
+    manifest {
+        inheritFrom jar.manifest
+        // Do not set Automatic-Module-Name to prevent module conflicts
+        attributes('Multi-Release': 'false')
+    }
     
     // Exclude NeoForge and BlueMap API (provided at runtime)
     exclude 'net/neoforged/**'
-    exclude 'META-INF/jarjar/net.neoforged.**'
-    exclude 'META-INF/services/net.neoforged.**'
-    exclude 'META-INF/services/cpw.mods.**'
-    exclude 'META-INF/services/com.mojang.**'
     exclude 'de/bluecolored/bluemap/**'
+    // Exclude BlueNBT (provided by BlueMap at runtime)
+    exclude 'de/bluecolored/bluenbt/**'
     
     // Exclude ASM from shadow jar (NeoForge provides it on module path)
     exclude 'org/objectweb/asm/**'
     exclude 'org/ow2/asm/**'
     
-    // Exclude packages provided by runtime modules (Java 21 module system conflicts)
-    // These must be excluded to prevent module resolution errors
-    // Using both forward slashes and explicit patterns to ensure they're caught
-    exclude 'com/mojang/**'
-    exclude 'com\\mojang\\**'  // Windows path separator
+    // Exclude Mojang logging classes (conflicts with Minecraft's logging module)
+    exclude 'com/mojang/logging/**'
+    
+    // Exclude Google packages that conflict with Minecraft's modules
+    exclude 'com/google/errorprone/annotations/**'
     exclude 'com/google/gson/**'
-    exclude 'com/google/errorprone/**'
-    exclude 'com/google/j2objc/**'
-    exclude 'com\\google\\j2objc\\**'
-    exclude 'com/google/thirdparty/**'
-    exclude 'com/sun/jna/**'
-    exclude 'com\\sun\\jna\\**'
-    exclude 'net/jodah/typetools/**'
-    exclude 'io/netty/**'
-    exclude 'META-INF/io.netty.*'
-    exclude 'META-INF/native-image/io.netty/**'
-    exclude 'META-INF/maven/io.netty/**'
-    exclude 'net/minecrell/terminalconsole/**'
-    exclude 'it/unimi/dsi/fastutil/**'
-    exclude 'org/checkerframework/**'
-    exclude 'org/apache/maven/**'
-    exclude 'org/apache/logging/log4j/**'
-    exclude 'org/apache/http/**'
-    exclude 'javax/annotation/**'
-    exclude 'org/joml/**'
-    exclude 'org/jline/**'
-    exclude 'org/antlr/**'
-    exclude 'org/lwjgl/**'
-    exclude 'org/openjdk/**'
-    exclude 'org/slf4j/**'
-    exclude 'org/jetbrains/**'
-    exclude 'org/intellij/**'
-    exclude 'org/codehaus/**'
-    exclude 'org/spongepowered/**'
-    exclude 'org\\spongepowered\\**'
-    exclude 'META-INF/services/org.spongepowered.**'
-    
-    // Additional exclusions for specific packages that cause module conflicts
-    exclude 'META-INF/versions/**/com/mojang/**'
-    exclude 'META-INF/versions/**/com/google/j2objc/**'
-    exclude 'META-INF/versions/**/com/sun/jna/**'
-    exclude 'META-INF/versions/**/org/spongepowered/**'
-    exclude 'META-INF/versions/**/net/neoforged/**'
-    
-    exclude 'com/ibm/**'
-    exclude 'joptsimple/**'
-    exclude 'ca/weblite/**'
-    exclude 'cpw/mods/**'
-    exclude 'mozilla/**'
-    exclude 'oshi/**'
     exclude 'com/google/common/**'
+    
+    // Exclude other packages that conflict with Minecraft's modules
+    exclude 'net/minecrell/terminalconsole/**'
+    exclude 'net/jodah/typetools/**'
+    
+    // Exclude Netty (provided by Minecraft)
+    exclude 'io/netty/**'
+    
+    // Exclude Checker Framework (provided by Minecraft)
+    exclude 'org/checkerframework/**'
+    
+    // Exclude Apache Maven (provided by Minecraft)
+    exclude 'org/apache/maven/**'
+    
+    // Exclude javax.annotation (provided by Minecraft)
+    exclude 'javax/annotation/**'
+    
+    // Exclude Log4j (provided by NeoForge)
+    exclude 'org/apache/logging/log4j/**'
+    
+    // Exclude fastutil (provided by Minecraft)
+    exclude 'it/unimi/dsi/fastutil/**'
+    
+    // Exclude ANTLR (provided by Minecraft)
+    exclude 'org/antlr/**'
+    
+    // Exclude Mojang brigadier (provided by Minecraft)
+    exclude 'com/mojang/brigadier/**'
+    
+    // Exclude Google J2ObjC annotations (provided by Minecraft)
+    exclude 'com/google/j2objc/**'
+    
+    // Exclude NightConfig (provided by NeoForge)
+    exclude 'com/electronwill/nightconfig/**'
+    
+    // Exclude JOML (provided by Minecraft)
+    exclude 'org/joml/**'
+    
+    // Exclude SpongePowered Mixin tools (provided by NeoForge)
+    exclude 'org/spongepowered/**'
+    
+    // Exclude JLine (provided by Minecraft)
+    exclude 'org/jline/**'
+    
+    // Exclude JNA (provided by Minecraft)
+    exclude 'com/sun/jna/**'
+    
+    // Exclude Plexus (provided by Minecraft)
+    exclude 'org/codehaus/plexus/**'
+    
+    // Exclude Mojang authlib (provided by Minecraft)
+    exclude 'com/mojang/authlib/**'
+    
+    // Exclude NeoForge FML earlydisplay (provided by NeoForge)
+    exclude 'net/neoforged/fml/earlydisplay/**'
+    
+    // Exclude MachineZoo NoException (provided by Minecraft)
+    exclude 'com/machinezoo/noexception/**'
+    
+    // Exclude cpw.mods packages (provided by NeoForge's securejarhandler module)
+    exclude 'cpw/mods/**'
+    
+    // Exclude net.jpountz (provided by org.lz4.java module)
     exclude 'net/jpountz/**'
-    exclude 'net/minecraft/**'
-    exclude 'net/minecraftforge/**'
-    exclude 'org/apache/commons/**'
     
-    // Ensure we don't include any module-info.class files from excluded packages
-    exclude 'module-info.class'
+    // Exclude module-info files (they declare packages that conflict with runtime modules)
+    exclude '**/module-info.class'
+    // Exclude META-INF/services files that reference SpongePowered (causes module conflicts)
+    exclude 'META-INF/services/org.spongepowered.*'
     
-    // Use mergeServiceFiles to handle service files properly
-    mergeServiceFiles()
+    // Exclude META-INF/maven entries for conflicting packages (but preserve our own)
+    exclude 'META-INF/maven/com.google.code.gson/**'
+    exclude 'META-INF/maven/com.google.j2objc/**'
+    exclude 'META-INF/maven/com.mojang/**'
+    exclude 'META-INF/maven/com.machinezoo/**'
+    exclude 'META-INF/maven/com.sun.jna/**'
+    exclude 'META-INF/maven/org.spongepowered/**'
+    exclude 'META-INF/maven/net.neoforged/**'
+    exclude 'META-INF/maven/cpw.mods/**'
+    exclude 'META-INF/maven/net.jpountz/**'
+    exclude 'META-INF/maven/io.netty/**'
+    exclude 'META-INF/maven/net.jodah/**'
     
-    // Transform to remove any remaining problematic packages
-    transform(com.github.jengelman.gradle.plugins.shadow.transformers.PropertiesFileTransformer) {
-        paths = ['META-INF/spring.handlers', 'META-INF/spring.schemas']
-        mergeStrategy = "append"
-    }
+    // Exclude jarjar metadata (from Shadow plugin)
+    exclude 'META-INF/jarjar/**'
     
     // Note: Relocation disabled due to Java 21 bytecode compatibility issues with Shadow plugin 8.1.1
     // If conflicts occur at runtime, consider updating Shadow plugin or using a different shading approach
@@ -215,93 +236,152 @@ shadowJar {
     // relocate 'org.bstats', "${project.group}.${project.name}.shadow.bstats"
     // relocate 'org.spongepowered.configurate', "${project.group}.${project.name}.shadow.configurate"
     
-    // Filter out problematic packages using a custom filter
-    doFirst {
-        // This ensures exclusions are applied
-        println "Building shadow JAR with exclusions for module system conflicts"
-    }
+    configurations = [project.configurations.runtimeClasspath]
     
 }
 
-// Post-process shadowJar to remove any remaining conflicting packages
-task cleanShadowJar {
-    dependsOn shadowJar
-    description = 'Removes conflicting packages from shadow JAR to fix module system errors'
+// Remove module-info.class files and conflicting packages from shadow JAR to avoid module conflicts
+// This ensures the JAR is valid for NeoForge by removing conflicting packages while preserving essential mod files
+tasks.named('shadowJar').get().doLast {
+    def jarFile = tasks.shadowJar.archiveFile.get().asFile
+    def tempFile = new File(jarFile.parentFile, "${jarFile.name}.tmp")
     
-    doLast {
-        def shadowJarFile = shadowJar.archiveFile.get().asFile
-        def tempJar = file("${buildDir}/tmp/cleanShadowJar/${shadowJarFile.name}")
+    def zipFile = new java.util.zip.ZipFile(jarFile)
+    def outputStream = new java.util.zip.ZipOutputStream(new FileOutputStream(tempFile))
+    
+    // Track written entries to avoid duplicates
+    def writtenEntries = new HashSet<String>()
+    
+    // Read manifest to modify it
+    def manifest = null
+    zipFile.entries().each { entry ->
+        if (entry.name == 'META-INF/MANIFEST.MF') {
+            manifest = new java.util.jar.Manifest(zipFile.getInputStream(entry))
+        }
+    }
+    
+    // Write modified manifest without Automatic-Module-Name
+    // Remove it completely to prevent Java from treating this as a module
+    // Also add Multi-Release: false to prevent module detection
+    if (manifest != null) {
+        def autoModuleName = new java.util.jar.Attributes.Name('Automatic-Module-Name')
+        if (manifest.mainAttributes.containsKey(autoModuleName)) {
+            manifest.mainAttributes.remove(autoModuleName)
+        }
+        // Ensure Multi-Release is false to prevent module path detection
+        manifest.mainAttributes.putValue('Multi-Release', 'false')
+        def manifestEntry = new java.util.zip.ZipEntry('META-INF/MANIFEST.MF')
+        manifestEntry.setTime(System.currentTimeMillis())
+        outputStream.putNextEntry(manifestEntry)
+        manifest.write(outputStream)
+        outputStream.closeEntry()
+        writtenEntries.add('META-INF/MANIFEST.MF')
+    }
+    
+    // Process all entries, ensuring mods.toml and mod classes are preserved
+    zipFile.entries().each { entry ->
+        // Skip if already written or if it's a directory
+        if (writtenEntries.contains(entry.name) || entry.isDirectory()) {
+            return
+        }
         
-        // Create temp directory
-        tempJar.parentFile.mkdirs()
-        
-        // Use zip filesystem to filter out problematic packages
-        // These packages conflict with Java module system at runtime
-        def conflictingPackages = [
-            'com/mojang/',
-            'com/google/j2objc/',
-            'com/sun/jna/',
-            'org/spongepowered/',
-            'net/neoforged/fml/earlydisplay',
-            'META-INF/versions/',
-            'META-INF/services/com.mojang',
-            'META-INF/services/org.spongepowered',
-            'META-INF/services/net.neoforged'
-        ]
-        
-        def zipFile = new java.util.zip.ZipFile(shadowJarFile)
-        def outputZip = new java.util.zip.ZipOutputStream(new FileOutputStream(tempJar))
-        
-        try {
-            int removed = 0
-            zipFile.entries().each { entry ->
-                def shouldExclude = false
-                def entryName = entry.name
-                
-                // Check if entry is in a conflicting package
-                for (pkg in conflictingPackages) {
-                    if (entryName.startsWith(pkg)) {
-                        shouldExclude = true
-                        removed++
-                        break
-                    }
-                }
-                
-                // Also exclude module-info.class files
-                if (entryName == 'module-info.class') {
-                    shouldExclude = true
-                    removed++
-                }
-                
-                if (!shouldExclude) {
-                    outputZip.putNextEntry(new java.util.zip.ZipEntry(entryName))
-                    if (!entry.isDirectory()) {
-                        zipFile.getInputStream(entry).withStream { input ->
-                            input.transferTo(outputZip)
-                        }
-                    }
-                    outputZip.closeEntry()
-                }
+        // ALWAYS preserve mods.toml - this is critical for NeoForge mod detection
+        if (entry.name == 'META-INF/neoforge.mods/mods.toml') {
+            def newEntry = new java.util.zip.ZipEntry(entry.name)
+            newEntry.setTime(entry.getTime())
+            outputStream.putNextEntry(newEntry)
+            zipFile.getInputStream(entry).withStream { inputStream ->
+                inputStream.transferTo(outputStream)
             }
-            println "Cleaned shadow JAR: removed ${removed} conflicting entries"
-        } finally {
-            outputZip.close()
-            zipFile.close()
+            outputStream.closeEntry()
+            writtenEntries.add(entry.name)
+            return
         }
         
-        // Replace the original shadowJar with the cleaned version
-        copy {
-            from tempJar
-            into shadowJarFile.parentFile
-            rename { shadowJarFile.name }
+        // Exclude module-info.class files and META-INF files referencing conflicting packages
+        // Also exclude class files from conflicting packages that are provided by runtime modules
+        def shouldExclude = entry.name.contains('module-info.class') ||
+                           entry.name.startsWith('META-INF/jarjar/') ||
+                           // NeoForge packages (but preserve META-INF/neoforge.mods/)
+                           (entry.name.contains('net/neoforged/') && 
+                            !entry.name.startsWith('META-INF/neoforge.mods/')) ||
+                           entry.name.contains('net/neoforged/fml/earlydisplay') ||
+                           entry.name.contains('net/neoforged/fml/mclanguageprovider') ||
+                           // cpw.mods packages
+                           entry.name.contains('cpw/mods/') ||
+                           // net.jpountz packages
+                           entry.name.contains('net/jpountz/') ||
+                           // net.jodah.typetools (provided by Minecraft)
+                           entry.name.contains('net/jodah/typetools') ||
+                           entry.name.startsWith('META-INF/maven/net.jodah') ||
+                           // Netty (provided by Minecraft)
+                           entry.name.contains('io/netty/') ||
+                           entry.name.startsWith('META-INF/maven/io.netty') ||
+                           // Google packages (provided by Minecraft) - but allow META-INF/maven entries for our own dependencies
+                           entry.name.contains('com/google/errorprone/annotations') ||
+                           (entry.name.contains('com/google/common/') && !entry.name.startsWith('META-INF/maven/com.technicjelle')) ||
+                           (entry.name.contains('com/google/gson/') && !entry.name.startsWith('META-INF/maven/com.technicjelle')) ||
+                           // Exclude META-INF/maven entries for conflicting packages only
+                           (entry.name.startsWith('META-INF/maven/com.google') && 
+                            !entry.name.contains('com.technicjelle')) ||
+                           (entry.name.startsWith('META-INF/maven/com.mojang') && 
+                            !entry.name.contains('com.technicjelle')) ||
+                           (entry.name.startsWith('META-INF/maven/com.machinezoo') && 
+                            !entry.name.contains('com.technicjelle')) ||
+                           // Mojang packages (provided by Minecraft)
+                           entry.name.contains('com/mojang/brigadier/') ||
+                           entry.name.contains('com/mojang/logging/') ||
+                           entry.name.contains('com/mojang/authlib/') ||
+                           // Google J2ObjC annotations (provided by Minecraft)
+                           entry.name.contains('com/google/j2objc/') ||
+                           entry.name.startsWith('META-INF/maven/com.google.j2objc') ||
+                           // JNA (provided by Minecraft)
+                           entry.name.contains('com/sun/jna/') ||
+                           entry.name.startsWith('META-INF/maven/com.sun.jna') ||
+                           // SpongePowered (provided by NeoForge)
+                           entry.name.contains('org/spongepowered/') ||
+                           entry.name.startsWith('META-INF/maven/org.spongepowered') ||
+                           // MachineZoo packages (provided by Minecraft)
+                           entry.name.contains('com/machinezoo/noexception') ||
+                           // META-INF services files that reference conflicting packages
+                           (entry.name.startsWith('META-INF/services/') && 
+                            (entry.name.contains('spongepowered') || 
+                             entry.name.contains('org.spongepowered') ||
+                             entry.name.contains('net.neoforged') ||
+                             entry.name.contains('neoforged'))) ||
+                           // Exclude META-INF files that might reference modules (but not mods.toml)
+                           (entry.name.startsWith('META-INF/') && 
+                            entry.name.contains('module') && 
+                            !entry.name.contains('mods.toml'))
+        
+        if (!shouldExclude) {
+            def newEntry = new java.util.zip.ZipEntry(entry.name)
+            newEntry.setTime(entry.getTime())
+            outputStream.putNextEntry(newEntry)
+            zipFile.getInputStream(entry).withStream { inputStream ->
+                inputStream.transferTo(outputStream)
+            }
+            outputStream.closeEntry()
+            writtenEntries.add(entry.name)
         }
+    }
+    
+    outputStream.close()
+    zipFile.close()
+    
+    // Replace original with cleaned version
+    if (jarFile.delete()) {
+        tempFile.renameTo(jarFile)
+        println "Cleaned JAR: Removed conflicting packages while preserving mod files"
+    } else {
+        throw new GradleException("Failed to replace JAR file")
     }
 }
 
 // Make the build task use shadowJar instead of regular jar (for distribution)
 // But run tasks use the regular jar to avoid Shadow plugin interference
-tasks.build.dependsOn cleanShadowJar
-tasks.assemble.dependsOn cleanShadowJar
+tasks.build.dependsOn shadowJar
+tasks.assemble.dependsOn shadowJar
 
 // Ensure run tasks don't depend on shadow jar and use a clean classpath
 tasks.matching { it.name.startsWith('run') }.configureEach {

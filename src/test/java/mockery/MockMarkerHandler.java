@@ -11,18 +11,18 @@ import java.util.UUID;
 public class MockMarkerHandler implements MarkerHandler {
 	@Override
 	public void add(Player player, BlueMapAPI __) {
-		Singletons.getLogger().finer("UUID: " + player.getPlayerUUID());
-		Singletons.getLogger().finer("Name: " + player.getPlayerName());
-		Singletons.getLogger().finer("Last Played: " + player.getLastPlayed().toEpochMilli());
-		Singletons.getLogger().finer("GameMode: " + player.getPlayerData().getGameMode());
-		Singletons.getLogger().finer("Position: " + player.getPlayerData().getPosition());
-		Singletons.getLogger().finer("Banned: " + Singletons.getServer().isPlayerBanned(player.getPlayerUUID()));
+		Singletons.getLogger().debug("UUID: " + player.getPlayerUUID());
+		Singletons.getLogger().debug("Name: " + player.getPlayerName());
+		Singletons.getLogger().debug("Last Played: " + player.getLastPlayed().toEpochMilli());
+		Singletons.getLogger().debug("GameMode: " + player.getPlayerData().getGameMode());
+		Singletons.getLogger().debug("Position: " + player.getPlayerData().getPosition());
+		Singletons.getLogger().debug("Banned: " + Singletons.getServer().isPlayerBanned(player.getPlayerUUID()));
 
 		Optional<UUID> worldUUID = player.getPlayerData().getWorldUUID();
 		if (worldUUID.isEmpty())
-			Singletons.getLogger().warning("World UUID: null");
+			Singletons.getLogger().warn("World UUID: null");
 		else
-			Singletons.getLogger().finer("World UUID: " + worldUUID.get());
+			Singletons.getLogger().debug("World UUID: " + worldUUID.get());
 	}
 
 	@Override

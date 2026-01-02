@@ -43,7 +43,7 @@ public interface Server {
 					Singletons.getLogger().info("Loaded " + map.size() + " cached player name(s) from " + cacheFile.getAbsolutePath());
 				}
 			} catch (IOException e) {
-				Singletons.getLogger().warning("Failed to load cached player names from " + cacheFile.getAbsolutePath() + ": " + e.getMessage());
+				Singletons.getLogger().warn("Failed to load cached player names from " + cacheFile.getAbsolutePath() + ": " + e.getMessage());
 				throw new RuntimeException(e);
 			}
 		} else {
@@ -97,6 +97,16 @@ public interface Server {
 	}
 
 	Optional<UUID> guessWorldUUID(Object object);
+
+	/**
+	 * Attempts to get the BlueMap-compatible world UUID from a stored world UUID.
+	 * This is used when the dimension field in NBT data can't be parsed, but we have the world UUID.
+	 * @param storedWorldUUID The world UUID stored in the player's NBT data
+	 * @return The BlueMap-compatible UUID (generated from dimension key), or empty if not found
+	 */
+	default Optional<UUID> getWorldUUIDFromStoredUUID(UUID storedWorldUUID) {
+		return Optional.empty();
+	}
 
 	boolean isPlayerBanned(UUID playerUUID);
 }
