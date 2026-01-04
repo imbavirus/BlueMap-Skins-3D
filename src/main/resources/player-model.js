@@ -8,12 +8,43 @@
 	const modelCache = new Map();
 	const skinCache = new Map();
 	
-	// Check if Three.js is available
-	if (typeof THREE === 'undefined') {
-		console.warn('[BMOPM] Three.js not available, 3D player models disabled');
-		return;
+	// Wait for Three.js to be available (BlueMap loads it)
+	function waitForThreeJS(callback, maxAttempts) {
+		maxAttempts = maxAttempts || 150; // Try for 15 seconds (150 * 100ms) - BlueMap may load it late
+		let attempts = 0;
+		
+		function check() {
+			// Check multiple ways Three.js might be available
+			// BlueMap uses __THREE__ as the global name
+			let THREE = null;
+			if (typeof window.__THREE__ !== 'undefined') {
+				THREE = window.__THREE__;
+			} else if (typeof window.THREE !== 'undefined') {
+				THREE = window.THREE;
+			} else if (typeof THREE !== 'undefined') {
+				THREE = THREE;
+			} else if (window.bluemap && window.bluemap.THREE) {
+				THREE = window.bluemap.THREE;
+			}
+			
+			if (THREE) {
+				// Ensure THREE is in global scope for our code
+				window.THREE = THREE;
+				console.log('[BMOPM] Three.js detected, version:', THREE.REVISION || 'unknown');
+				callback();
+			} else if (attempts < maxAttempts) {
+				attempts++;
+				setTimeout(check, 100);
+			} else {
+				console.warn('[BMOPM] Three.js not available after waiting', maxAttempts * 100 / 1000, 'seconds');
+				console.warn('[BMOPM] Checked for: window.__THREE__, window.THREE, THREE, window.bluemap.THREE');
+				console.warn('[BMOPM] Available globals:', Object.keys(window).filter(k => k.includes('THREE') || k.includes('three')));
+			}
+		}
+		
+		check();
 	}
-
+	
 	// Simple Minecraft player model geometry
 	function createPlayerModel() {
 		const group = new THREE.Group();
@@ -168,8 +199,22 @@
 
 	// Initialize 3D models for all markers
 	function initializeModels() {
+		console.log('[BMOPM] initializeModels called, modelsEnabled:', window.bmopmModelsEnabled);
+		// Check if 3D models are enabled via toggle
+		const modelsEnabled = window.bmopmModelsEnabled !== false; // Default to true if not set
+		if (!modelsEnabled) {
+			console.log('[BMOPM] Models disabled, skipping initialization');
+			return; // Don't initialize if toggle is off
+		}
+		
 		const modelContainers = document.querySelectorAll('.bmopm-3d-model');
 		modelContainers.forEach(function(container) {
+			// Only initialize visible models
+			const marker = container.closest('.bmopm-offline-player');
+			if (marker && !marker.classList.contains('bmopm-3d-mode')) {
+				return; // Skip if marker is not in 3D mode
+			}
+			
 			if (container.dataset.initialized === 'true') return;
 			
 			const playerUuid = container.dataset.playerUuid;
@@ -182,15 +227,28 @@
 		});
 	}
 
-	// Initialize when DOM is ready
-	if (document.readyState === 'loading') {
-		document.addEventListener('DOMContentLoaded', initializeModels);
-	} else {
-		initializeModels();
-	}
+	// Wait for Three.js before initializing
+	waitForThreeJS(function() {
+		console.log('[BMOPM] Three.js loaded, initializing 3D player models');
+		
+		// Only initialize if models are enabled
+		if (window.bmopmModelsEnabled !== false) {
+			// Initialize when DOM is ready
+			if (document.readyState === 'loading') {
+				document.addEventListener('DOMContentLoaded', initializeModels);
+			} else {
+				setTimeout(initializeModels, 100);
+			}
+		} else {
+			console.log('[BMOPM] 3D models disabled, waiting for toggle');
+		}
 
 	// Re-initialize when markers are added/updated
 	const observer = new MutationObserver(function(mutations) {
+		// Check if 3D models are enabled
+		const modelsEnabled = window.bmopmModelsEnabled !== false;
+		if (!modelsEnabled) return;
+		
 		let shouldReinit = false;
 		mutations.forEach(function(mutation) {
 			if (mutation.addedNodes.length > 0) {
@@ -216,7 +274,27 @@
 
 	// Also listen for BlueMap marker updates
 	if (typeof bluemap !== 'undefined' && bluemap.events) {
-		bluemap.events.addEventListener('markersUpdated', initializeModels);
+		bluemap.events.addEventListener('markersUpdated', function() {
+			const modelsEnabled = window.bmopmModelsEnabled !== false;
+			if (modelsEnabled) {
+				setTimeout(initializeModels, 100);
+			}
+		});
 	}
+	
+		// Listen for toggle changes
+		window.addEventListener('storage', function(e) {
+			if (e.key === 'bmopm-3d-models-enabled') {
+				const modelsEnabled = e.newValue === 'true';
+				window.bmopmModelsEnabled = modelsEnabled;
+				if (modelsEnabled) {
+					setTimeout(initializeModels, 100);
+				}
+			}
+		});
+		
+		// Expose initializeModels globally so script.js can call it
+		window.initializeModels = initializeModels;
+	});
 })();
 

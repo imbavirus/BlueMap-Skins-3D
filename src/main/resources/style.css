@@ -44,3 +44,67 @@
 .bmopm-offline-player > .bm-marker-poi-label > i {
 	color: var(--theme-fg-light);
 }
+
+/* 3D Models Toggle Button */
+.bmopm-toggle-container {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.bmopm-3d-toggle-button {
+	background: var(--theme-bg, #2a2a2a);
+	border: 1px solid var(--theme-border, #444);
+	color: var(--theme-fg, #fff);
+	padding: 8px 12px;
+	border-radius: 4px;
+	cursor: pointer !important;
+	font-size: 18px;
+	line-height: 1;
+	transition: background 0.2s, border-color 0.2s;
+	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+	pointer-events: auto !important;
+	z-index: 10001 !important;
+	position: relative;
+	user-select: none;
+	-webkit-user-select: none;
+}
+
+.bmopm-3d-toggle-button:hover {
+	background: var(--theme-bg-hover, #3a3a3a);
+	border-color: var(--theme-border-hover, #555);
+}
+
+.bmopm-3d-toggle-button:active {
+	background: var(--theme-bg-active, #1a1a1a);
+	transform: translateY(1px);
+}
+
+/* 3D Model Container */
+.bmopm-3d-model {
+	display: none; /* Hidden by default, shown when toggle is on */
+	width: 64px;
+	height: 64px;
+	margin: 8px auto;
+}
+
+/* When 3D mode is enabled */
+.bmopm-offline-player.bmopm-3d-mode .bm-marker-poi-icon {
+	display: none !important;
+}
+
+.bmopm-offline-player.bmopm-3d-mode .bmopm-3d-model {
+	display: block;
+}
+
+/* When icon mode (default) */
+.bmopm-offline-player:not(.bmopm-3d-mode) .bm-marker-poi-icon {
+	display: block;
+}
+
+.bmopm-offline-player:not(.bmopm-3d-mode) .bmopm-3d-model {
+	display: none;
+}
+
+/* Note: Markers are positioned at feet level (for 3D models)
+   Icons are visually acceptable at this position, or can be adjusted via icon positioning if needed */

@@ -25,6 +25,9 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Consumer;
@@ -59,13 +62,55 @@ public class BlueMapOfflinePlayerMarkers {
 		BlueMapAPI.onEnable(api -> {
 			LOGGER.info("BlueMap is enabled! Copying resources to BlueMap webapp and registering them...");
 			try {
-				BMCopy.jarResourceToWebApp(api, getClass().getClassLoader(), "style.css", "bmopm.css", false);
-				LOGGER.info("Copied style.css to BlueMap webapp");
-				BMCopy.jarResourceToWebApp(api, getClass().getClassLoader(), "script.js", "bmopm.js", false);
-				LOGGER.info("Copied script.js to BlueMap webapp");
-				BMCopy.jarResourceToWebApp(api, getClass().getClassLoader(), "player-model.js", "bmopm-player-model.js", false);
-				LOGGER.info("Copied player-model.js to BlueMap webapp");
-				LOGGER.info("All resources successfully copied to BlueMap webapp");
+				// Delete old files first to ensure fresh copy
+				Path webAppPath = api.getWebApp().getWebRoot();
+				Path assetsDir = webAppPath.resolve("assets");
+				Path rootDir = webAppPath;
+				
+				try {
+					Files.deleteIfExists(assetsDir.resolve("bmopm.js"));
+					Files.deleteIfExists(assetsDir.resolve("bmopm-player-model.js"));
+					Files.deleteIfExists(assetsDir.resolve("bmopm.css"));
+					Files.deleteIfExists(rootDir.resolve("bmopm.js"));
+					Files.deleteIfExists(rootDir.resolve("bmopm-player-model.js"));
+					Files.deleteIfExists(rootDir.resolve("bmopm.css"));
+					LOGGER.info("Deleted old files");
+				} catch (IOException e) {
+					LOGGER.warn("Failed to delete old files: " + e.getMessage());
+				}
+				
+				// Use versioned filenames to force cache refresh
+				String version = "v3.6";
+				String scriptName = "bmopm-" + version + ".js";
+				String playerModelName = "bmopm-player-model-" + version + ".js";
+				String styleName = "bmopm-" + version + ".css";
+				
+				BMCopy.jarResourceToWebApp(api, getClass().getClassLoader(), "style.css", styleName, false);
+				LOGGER.info("Copied style.css to BlueMap webapp as " + styleName);
+				BMCopy.jarResourceToWebApp(api, getClass().getClassLoader(), "script.js", scriptName, false);
+				LOGGER.info("Copied script.js to BlueMap webapp as " + scriptName);
+				BMCopy.jarResourceToWebApp(api, getClass().getClassLoader(), "player-model.js", playerModelName, false);
+				LOGGER.info("Copied player-model.js to BlueMap webapp as " + playerModelName);
+				
+				// Copy files to root directory as well (registerScript might expect them there)
+				try {
+					Files.copy(assetsDir.resolve(scriptName), rootDir.resolve(scriptName), StandardCopyOption.REPLACE_EXISTING);
+					Files.copy(assetsDir.resolve(playerModelName), rootDir.resolve(playerModelName), StandardCopyOption.REPLACE_EXISTING);
+					Files.copy(assetsDir.resolve(styleName), rootDir.resolve(styleName), StandardCopyOption.REPLACE_EXISTING);
+					LOGGER.info("Copied files to webapp root directory");
+				} catch (IOException e) {
+					LOGGER.warn("Failed to copy files to root directory: " + e.getMessage());
+				}
+				
+				// Register scripts with versioned names
+				api.getWebApp().registerScript(scriptName);
+				LOGGER.info("Registered " + scriptName + " script");
+				api.getWebApp().registerScript(playerModelName);
+				LOGGER.info("Registered " + playerModelName + " script");
+				api.getWebApp().registerStyle(styleName);
+				LOGGER.info("Registered " + styleName + " style");
+				
+				LOGGER.info("All resources successfully copied and registered to BlueMap webapp");
 			} catch (IOException e) {
 				LOGGER.error("Failed to copy resources to BlueMap webapp!", e);
 			}

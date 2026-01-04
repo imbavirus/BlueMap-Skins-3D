@@ -82,39 +82,37 @@ public class BlueMapMarkerHandler implements MarkerHandler {
 			position = basePosition.add(0, 1.8, 0);
 		}
 
-		// Get rotation for 3D models
+		// Get rotation for 3D models (always include for frontend toggle)
 		String rotationData = "";
 		Optional<Vector3d> rotation = player.getPlayerData().getRotation();
-		if (rotation.isPresent() && config.showPlayerModels()) {
+		if (rotation.isPresent()) {
 			Vector3d rot = rotation.get();
 			rotationData = String.format(" data-yaw=\"%.2f\" data-pitch=\"%.2f\"", rot.getX(), rot.getY());
 		}
 
 		// Create marker-template
+		// Always include both icon and 3D model container for frontend toggle
 		String detailHtml = player.getPlayerName() + " <i>(offline)</i><br>"
 				+ "<bmopm-datetime data-timestamp=" + player.getLastPlayed().toEpochMilli() + "></bmopm-datetime>";
 		
-		if (config.showPlayerModels()) {
-			// Add 3D model container
-			detailHtml += "<div class=\"bmopm-3d-model\" data-player-uuid=\"" + player.getPlayerUUID() + "\"" 
-					+ rotationData + " data-animate=\"" + config.animatePlayerModels() + "\"></div>";
-		}
+		// Always add 3D model container (frontend will control visibility)
+		detailHtml += "<div class=\"bmopm-3d-model\" data-player-uuid=\"" + player.getPlayerUUID() + "\"" 
+				+ rotationData + " data-animate=\"" + config.animatePlayerModels() + "\"></div>";
 		
+		// Use base position (feet level) - frontend will handle positioning
 		POIMarker.Builder markerBuilder = POIMarker.builder()
 				.label(player.getPlayerName())
 				.detail(detailHtml)
-				.styleClasses("bmopm-offline-player" + (config.showPlayerModels() ? " bmopm-3d-enabled" : ""))
-				.position(position);
+				.styleClasses("bmopm-offline-player", "bmopm-3d-enabled")
+				.position(basePosition);
 
 		// Create an icon and marker for each map of this world
 		// We need to create a separate marker per map, because the map-storage that the icon is saved in
 		// is different for each map
 		int mapCount = 0;
 		for (BlueMapMap map : blueMapWorld.getMaps()) {
-			if (!config.showPlayerModels()) {
-				// Only set icon if not using 3D models
-				markerBuilder.icon(BMSkin.getPlayerHeadIconAddress(api, player.getPlayerUUID(), map), 0, 0); // centered with CSS instead
-			}
+			// Always set icon (frontend will control visibility)
+			markerBuilder.icon(BMSkin.getPlayerHeadIconAddress(api, player.getPlayerUUID(), map), 0, 0); // centered with CSS instead
 
 			// get marker-set (or create new marker set if none found)
 			MarkerSet markerSet = map.getMarkerSets().computeIfAbsent(Config.MARKER_SET_ID, id -> MarkerSet.builder()
