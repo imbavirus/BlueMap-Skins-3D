@@ -12,6 +12,33 @@
 	window.bmopmScriptLoaded = true;
 	console.log('[BMOPM] script.js loaded');
 	
+	// Immediate debug function (available right away, no rebuild needed)
+	// This will be replaced by the full debug function later, but helps with immediate debugging
+	if (!window.bmopmDebug) {
+		window.bmopmDebug = function() {
+			console.log('[BMOPM] Quick Debug - checking for markers...');
+			const markers = document.getElementsByClassName('bmopm-offline-player');
+			console.log('[BMOPM] Markers with class "bmopm-offline-player":', markers.length);
+			
+			// Check all possible marker elements
+			const allPossible = document.querySelectorAll('[class*="bmopm"], [class*="offline"], [data-player-uuid]');
+			console.log('[BMOPM] All possible marker elements:', allPossible.length);
+			
+			// Check BlueMap structure
+			if (typeof bluemap !== 'undefined') {
+				console.log('[BMOPM] BlueMap API available');
+				console.log('[BMOPM] BlueMap maps:', bluemap.maps ? bluemap.maps.length : 'unknown');
+			}
+			
+			return {
+				markersFound: markers.length,
+				possibleMarkers: allPossible.length,
+				bluemapAvailable: typeof bluemap !== 'undefined'
+			};
+		};
+		console.log('[BMOPM] Quick debug function available: window.bmopmDebug()');
+	}
+	
 	let smallIcons = false;
 
 	if (typeof bluemap !== 'undefined' && bluemap.events) {
@@ -186,11 +213,81 @@
 		updatingVisibility = true;
 		
 		try {
-			const markers = document.getElementsByClassName('bmopm-offline-player');
-			console.log('[BMOPM] Found', markers.length, 'markers');
+			// Try multiple ways to find markers - BlueMap might render them with different structure
+			let markers = document.getElementsByClassName('bmopm-offline-player');
+			
+			// If not found, try finding by data attributes or child elements
+			if (markers.length === 0) {
+				// Look for elements containing our 3D model containers
+				const modelContainers = document.querySelectorAll('.bmopm-3d-model');
+				if (modelContainers.length > 0) {
+					// Find parent markers
+					markers = Array.from(modelContainers).map(container => {
+						return container.closest('.bm-marker-poi, [class*="marker"], [class*="poi"]');
+					}).filter(m => m !== null);
+					console.log('[BMOPM] Found', markers.length, 'markers via 3D model containers');
+				}
+			}
+			
+			// Also try finding by data-player-uuid attribute
+			if (markers.length === 0) {
+				const uuidElements = document.querySelectorAll('[data-player-uuid]');
+				if (uuidElements.length > 0) {
+					markers = Array.from(uuidElements).map(el => {
+						return el.closest('.bm-marker-poi, [class*="marker"], [class*="poi"]');
+					}).filter(m => m !== null);
+					console.log('[BMOPM] Found', markers.length, 'markers via data-player-uuid');
+				}
+			}
+			
+			// Convert to array for easier handling
+			markers = Array.from(markers);
+			console.log('[BMOPM] Found', markers.length, 'markers total');
+			
+			// Enhanced debugging: check for markers in different ways
+			if (markers.length === 0) {
+				// Check if BlueMap markers are loaded at all
+				const allMarkers = document.querySelectorAll('[class*="marker"], [class*="poi"], [class*="bmopm"]');
+				console.log('[BMOPM] Debug: Found', allMarkers.length, 'elements with marker-related classes');
+				
+				// Check if BlueMap API has markers
+				if (typeof bluemap !== 'undefined' && bluemap.markers) {
+					console.log('[BMOPM] Debug: BlueMap markers API available');
+					try {
+						const markerSets = bluemap.markers.getMarkerSets ? bluemap.markers.getMarkerSets() : null;
+						console.log('[BMOPM] Debug: Marker sets:', markerSets);
+					} catch (e) {
+						console.log('[BMOPM] Debug: Could not access marker sets:', e);
+					}
+				}
+				
+				// Check for any elements that might be our markers with different class names
+				const possibleMarkers = document.querySelectorAll('[data-player-uuid], .bmopm-3d-model, [class*="offline"]');
+				console.log('[BMOPM] Debug: Found', possibleMarkers.length, 'possible marker elements');
+				
+				// Check for POI markers that might contain our content
+				const poiMarkers = document.querySelectorAll('.bm-marker-poi');
+				console.log('[BMOPM] Debug: Found', poiMarkers.length, 'POI markers total');
+				if (poiMarkers.length > 0) {
+					// Check if any contain our classes or data attributes
+					const ourMarkers = Array.from(poiMarkers).filter(poi => {
+						return poi.classList.contains('bmopm-offline-player') ||
+						       poi.querySelector('.bmopm-3d-model') ||
+						       poi.querySelector('[data-player-uuid]');
+					});
+					console.log('[BMOPM] Debug: Found', ourMarkers.length, 'POI markers that might be ours');
+				}
+			}
 			
 			for (let i = 0; i < markers.length; i++) {
 				const marker = markers[i];
+				if (!marker) continue;
+				
+				// Ensure the marker has our class for future searches
+				if (!marker.classList.contains('bmopm-offline-player')) {
+					marker.classList.add('bmopm-offline-player');
+				}
+				
 				const icon = marker.querySelector('.bm-marker-poi-icon');
 				const modelContainer = marker.querySelector('.bmopm-3d-model');
 				console.log('[BMOPM] Marker', i, '- icon:', !!icon, 'modelContainer:', !!modelContainer);
@@ -291,13 +388,62 @@
 	if (typeof bluemap !== 'undefined' && bluemap.events) {
 		bluemap.events.addEventListener('markersUpdated', () => {
 			console.log('[BMOPM] Markers updated event received');
-			setTimeout(updateModelVisibility, 100);
+			setTimeout(() => {
+				const markers = document.getElementsByClassName('bmopm-offline-player');
+				console.log('[BMOPM] After markersUpdated event, found', markers.length, 'markers');
+				updateModelVisibility();
+			}, 500); // Give BlueMap time to render
 		});
+		
+		// Also listen for map ready events
+		bluemap.events.addEventListener('ready', () => {
+			console.log('[BMOPM] BlueMap ready event received');
+			setTimeout(() => {
+				const markers = document.getElementsByClassName('bmopm-offline-player');
+				console.log('[BMOPM] After ready event, found', markers.length, 'markers');
+				updateModelVisibility();
+			}, 1000);
+		});
+	}
+	
+	// Helper function to find markers using multiple strategies
+	function findMarkers() {
+		let markers = Array.from(document.getElementsByClassName('bmopm-offline-player'));
+		
+		// If not found, try finding by data attributes or child elements
+		if (markers.length === 0) {
+			const modelContainers = document.querySelectorAll('.bmopm-3d-model');
+			if (modelContainers.length > 0) {
+				markers = Array.from(modelContainers).map(container => {
+					const parent = container.closest('.bm-marker-poi, [class*="marker"], [class*="poi"]');
+					if (parent && !parent.classList.contains('bmopm-offline-player')) {
+						parent.classList.add('bmopm-offline-player');
+					}
+					return parent;
+				}).filter(m => m !== null);
+			}
+		}
+		
+		// Also try finding by data-player-uuid attribute
+		if (markers.length === 0) {
+			const uuidElements = document.querySelectorAll('[data-player-uuid]');
+			if (uuidElements.length > 0) {
+				markers = Array.from(uuidElements).map(el => {
+					const parent = el.closest('.bm-marker-poi, [class*="marker"], [class*="poi"]');
+					if (parent && !parent.classList.contains('bmopm-offline-player')) {
+						parent.classList.add('bmopm-offline-player');
+					}
+					return parent;
+				}).filter(m => m !== null);
+			}
+		}
+		
+		return markers;
 	}
 	
 	// Also use MutationObserver to detect when markers are added to DOM
 	const markerObserver = new MutationObserver(function(mutations) {
-		const markers = document.getElementsByClassName('bmopm-offline-player');
+		const markers = findMarkers();
 		if (markers.length > 0) {
 			console.log('[BMOPM] Markers detected in DOM:', markers.length);
 			// Only update if models are enabled
@@ -315,22 +461,132 @@
 	
 	// Also check periodically for markers (fallback)
 	let markerCheckInterval = setInterval(() => {
-		const markers = document.getElementsByClassName('bmopm-offline-player');
+		const markers = findMarkers();
 		if (markers.length > 0) {
 			console.log('[BMOPM] Markers found via interval check:', markers.length);
 			clearInterval(markerCheckInterval);
 			if (modelsEnabled) {
 				setTimeout(updateModelVisibility, 100);
 			}
+		} else {
+			// Log periodically to help debug
+			const checkCount = (markerCheckInterval._checkCount || 0) + 1;
+			markerCheckInterval._checkCount = checkCount;
+			if (checkCount % 5 === 0) { // Every 5 seconds
+				console.log('[BMOPM] Still waiting for markers... (check', checkCount, ')');
+			}
 		}
 	}, 1000);
 	
-	// Stop checking after 30 seconds
+	// Stop checking after 60 seconds (increased from 30)
 	setTimeout(() => {
 		clearInterval(markerCheckInterval);
-	}, 30000);
+		const finalMarkers = document.getElementsByClassName('bmopm-offline-player');
+		if (finalMarkers.length === 0) {
+			console.warn('[BMOPM] No markers found after 60 seconds. This might indicate:');
+			console.warn('[BMOPM] 1. No offline player markers were created by the backend');
+			console.warn('[BMOPM] 2. Markers are hidden or filtered out');
+			console.warn('[BMOPM] 3. BlueMap hasn\'t rendered markers yet (try refreshing)');
+			console.warn('[BMOPM] 4. Marker class name mismatch (check BlueMap version compatibility)');
+		}
+	}, 60000);
 	
 	// Expose toggle state globally for player-model.js (defined in updateModelVisibility to avoid recursion)
+	
+	// Expose debug function to browser console
+	window.bmopmDebug = function() {
+		console.log('=== BMOPM Debug Information ===');
+		console.log('Models enabled:', modelsEnabled);
+		console.log('Toggle button exists:', !!document.getElementById('bmopm-3d-toggle'));
+		
+		const markers = document.getElementsByClassName('bmopm-offline-player');
+		console.log('Markers with class "bmopm-offline-player":', markers.length);
+		
+		if (markers.length === 0) {
+			console.log('\n--- Searching for markers in different ways ---');
+			
+			// Check all marker-related elements
+			const allMarkers = document.querySelectorAll('[class*="marker"], [class*="poi"], [class*="bmopm"]');
+			console.log('Elements with marker/poi/bmopm in class:', allMarkers.length);
+			if (allMarkers.length > 0) {
+				console.log('Sample elements:', Array.from(allMarkers).slice(0, 5).map(el => ({
+					tag: el.tagName,
+					classes: el.className,
+					id: el.id
+				})));
+			}
+			
+			// Check for 3D model containers
+			const modelContainers = document.querySelectorAll('.bmopm-3d-model');
+			console.log('3D model containers found:', modelContainers.length);
+			
+			// Check for player UUID data attributes
+			const uuidElements = document.querySelectorAll('[data-player-uuid]');
+			console.log('Elements with data-player-uuid:', uuidElements.length);
+			
+			// Check BlueMap API
+			if (typeof bluemap !== 'undefined') {
+				console.log('BlueMap API available:', true);
+				console.log('BlueMap events available:', !!bluemap.events);
+				console.log('BlueMap maps:', bluemap.maps ? bluemap.maps.length : 'unknown');
+			} else {
+				console.log('BlueMap API available: false');
+			}
+			
+			// Check for any POI markers
+			const poiMarkers = document.querySelectorAll('.bm-marker-poi, [class*="poi-marker"]');
+			console.log('POI markers found:', poiMarkers.length);
+			
+			// Check marker sets via BlueMap API
+			if (typeof bluemap !== 'undefined') {
+				try {
+					// Try different ways to access markers
+					if (bluemap.markers) {
+						console.log('BlueMap markers object:', bluemap.markers);
+						if (typeof bluemap.markers.getMarkerSets === 'function') {
+							const markerSets = bluemap.markers.getMarkerSets();
+							console.log('Marker sets (via getMarkerSets):', markerSets);
+						}
+					}
+					
+					// Check if markers are in the API's internal state
+					if (bluemap.maps) {
+						console.log('BlueMap maps:', bluemap.maps);
+						bluemap.maps.forEach((map, i) => {
+							console.log(`Map ${i}:`, {
+								id: map.id,
+								name: map.name,
+								markerSets: map.markerSets ? Object.keys(map.markerSets) : 'N/A'
+							});
+						});
+					}
+					
+					// Check for marker update events
+					if (bluemap.events) {
+						console.log('BlueMap events available, listening for marker updates...');
+						// This will help identify when markers are actually added
+					}
+				} catch (e) {
+					console.log('Error accessing BlueMap API:', e.message, e);
+				}
+			}
+		} else {
+			console.log('\n--- Marker Details ---');
+			Array.from(markers).forEach((marker, i) => {
+				console.log(`Marker ${i + 1}:`, {
+					classes: marker.className,
+					id: marker.id,
+					hasIcon: !!marker.querySelector('.bm-marker-poi-icon'),
+					hasModel: !!marker.querySelector('.bmopm-3d-model'),
+					playerUuid: marker.querySelector('.bmopm-3d-model')?.dataset?.playerUuid || 'N/A'
+				});
+			});
+		}
+		
+		console.log('=== End Debug ===');
+	};
+	
+	console.log('[BMOPM] Debug function available: call window.bmopmDebug() in console');
 })();
 
 class LocaleDateTime extends HTMLElement {
