@@ -45,6 +45,15 @@ public class PlayerNeoForgeData implements PlayerData {
 	}
 
 	@Override
+	public Optional<String> getDimensionKey() {
+		Level level = player.level();
+		if (level instanceof net.minecraft.server.level.ServerLevel serverLevel) {
+			return Optional.of(serverLevel.dimension().location().toString());
+		}
+		return Optional.empty();
+	}
+
+	@Override
 	public Optional<Vector3d> getRotation() {
 		// Minecraft stores rotation as yaw (horizontal) and pitch (vertical)
 		float yaw = player.getYRot();

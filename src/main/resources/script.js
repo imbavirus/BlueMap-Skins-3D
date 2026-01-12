@@ -17,8 +17,8 @@
 	if (!window.bmopmDebug) {
 		window.bmopmDebug = function() {
 			console.log('[BMOPM] Quick Debug - checking for markers...');
-			const markers = document.getElementsByClassName('bmopm-offline-player');
-			console.log('[BMOPM] Markers with class "bmopm-offline-player":', markers.length);
+			const markers = document.querySelectorAll('[class*="bmopm-player-"], .bmopm-offline-player');
+			console.log('[BMOPM] Markers matching bmopm-player-* or bmopm-offline-player:', markers.length);
 			
 			// Check all possible marker elements
 			const allPossible = document.querySelectorAll('[class*="bmopm"], [class*="offline"], [data-player-uuid]');
@@ -66,6 +66,64 @@
 // 3D Models Toggle
 (function() {
 	const STORAGE_KEY = 'bmopm-3d-models-enabled';
+	const PLAYER_MODEL_SCRIPT_ID = 'bmopm-player-model-script';
+
+	function detectBmopmVersion() {
+		// Try to infer from the currently loaded bmopm script src (e.g. bmopm-v4.1.js)
+		const scripts = Array.from(document.querySelectorAll('script[src]'));
+		for (const s of scripts) {
+			const src = s.getAttribute('src') || '';
+			const m = src.match(/bmopm-(v[0-9.]+)\.js/i);
+			if (m && m[1]) return m[1];
+		}
+		// Fallback: keep in sync with backend version bumps
+		return 'v4.1';
+	}
+
+	function ensurePlayerModelScriptLoaded() {
+		if (typeof window.initializeModels === 'function') return true;
+
+		// If script tag already exists, assume it's still loading
+		if (document.getElementById(PLAYER_MODEL_SCRIPT_ID) || document.querySelector('script[src*="bmopm-player-model"]')) {
+			return false;
+		}
+
+		const version = detectBmopmVersion();
+		const candidates = [
+			`assets/bmopm-player-model-${version}.js`,
+			`bmopm-player-model-${version}.js`,
+			`assets/bmopm-player-model.js`,
+			`bmopm-player-model.js`
+		];
+
+		const script = document.createElement('script');
+		script.id = PLAYER_MODEL_SCRIPT_ID;
+
+		let idx = 0;
+		const tryNext = () => {
+			if (idx >= candidates.length) {
+				console.warn('[BMOPM] Failed to load player-model script from all candidates');
+				return;
+			}
+			script.src = candidates[idx++];
+		};
+
+		script.onload = () => {
+			console.log('[BMOPM] Player-model script loaded:', script.src);
+			if (window.bmopmModelsEnabled && typeof window.initializeModels === 'function') {
+				setTimeout(() => window.initializeModels(), 100);
+			}
+		};
+
+		script.onerror = () => {
+			console.warn('[BMOPM] Failed to load:', script.src);
+			tryNext();
+		};
+
+		tryNext();
+		document.head.appendChild(script);
+		return false;
+	}
 	
 	// Get initial state from localStorage (default to false/icon mode)
 	let modelsEnabled = localStorage.getItem(STORAGE_KEY) === 'true';
@@ -73,9 +131,10 @@
 	// Create toggle button
 	function createToggleButton() {
 		const insertToggle = () => {
-			// Check if toggle already exists
-			if (document.getElementById('bmopm-3d-toggle')) {
-				return;
+			// If toggle already exists, we still want to ensure it ends up next to BlueMap's controls
+			const existingButton = document.getElementById('bmopm-3d-toggle');
+			if (existingButton) {
+				console.log('[BMOPM] Toggle already exists, ensuring placement...');
 			}
 			
 			// Strategy 1: Look for buttons in top-right area (where BlueMap typically places controls)
@@ -154,34 +213,39 @@
 				}
 			}
 			
-			const button = document.createElement('button');
-			button.id = 'bmopm-3d-toggle';
-			button.className = 'bmopm-3d-toggle-button';
-			button.title = 'Toggle 3D Player Models';
-			button.innerHTML = modelsEnabled ? '👤' : '🖼️'; // 👤 for 3D, 🖼️ for icon
-			button.setAttribute('aria-label', 'Toggle 3D Player Models');
-			
-			// Ensure button is clickable
-			button.style.cssText = 'cursor: pointer; pointer-events: auto; z-index: 10001; position: relative;';
-			button.type = 'button'; // Prevent form submission
-			
-			button.addEventListener('click', (e) => {
-				e.preventDefault();
-				e.stopPropagation();
-				console.log('[BMOPM] Toggle button clicked!');
-				modelsEnabled = !modelsEnabled;
-				localStorage.setItem(STORAGE_KEY, modelsEnabled ? 'true' : 'false');
-				button.innerHTML = modelsEnabled ? '👤' : '🖼️';
-				console.log('[BMOPM] Toggle clicked, modelsEnabled:', modelsEnabled);
-				console.log('[BMOPM] Calling updateModelVisibility...');
-				updateModelVisibility();
-				console.log('[BMOPM] updateModelVisibility called');
-			});
+			let button = existingButton;
+			if (!button) {
+				button = document.createElement('button');
+				button.id = 'bmopm-3d-toggle';
+				button.className = 'bmopm-3d-toggle-button';
+				button.title = 'Toggle 3D Player Models';
+				button.innerHTML = modelsEnabled ? '👤' : '🖼️'; // 👤 for 3D, 🖼️ for icon
+				button.setAttribute('aria-label', 'Toggle 3D Player Models');
+				
+				// Ensure button is clickable
+				button.style.cssText = 'cursor: pointer; pointer-events: auto; z-index: 10001; position: relative;';
+				button.type = 'button'; // Prevent form submission
+				
+				button.addEventListener('click', (e) => {
+					e.preventDefault();
+					e.stopPropagation();
+					console.log('[BMOPM] Toggle button clicked!');
+					modelsEnabled = !modelsEnabled;
+					localStorage.setItem(STORAGE_KEY, modelsEnabled ? 'true' : 'false');
+					button.innerHTML = modelsEnabled ? '👤' : '🖼️';
+					console.log('[BMOPM] Toggle clicked, modelsEnabled:', modelsEnabled);
+					console.log('[BMOPM] Calling updateModelVisibility...');
+					updateModelVisibility();
+					console.log('[BMOPM] updateModelVisibility called');
+				});
+			}
 			
 			// Insert after day/night toggle if found, otherwise append to container
 			if (dayNightToggle && dayNightToggle.parentElement === container) {
-				dayNightToggle.insertAdjacentElement('afterend', button);
+				// Place it on the LEFT of the day/night toggle (requested)
+				dayNightToggle.insertAdjacentElement('beforebegin', button);
 			} else {
+				// If container is a new fixed container, append (moves the element if it existed elsewhere)
 				container.appendChild(button);
 			}
 			
@@ -203,6 +267,75 @@
 	
 	// Update visibility of 3D models vs icons
 	let updatingVisibility = false; // Flag to prevent recursion
+
+	function extractPlayerUuidFromClassList(el) {
+		if (!el || !el.classList) return null;
+		for (const cls of el.classList) {
+			if (cls.startsWith('bmopm-player-')) return cls.substring('bmopm-player-'.length);
+		}
+		return null;
+	}
+
+	function normalizeToMarkerRoot(el) {
+		if (!el) return null;
+		// BlueMap commonly uses .bm-marker-poi as the marker root element
+		return el.closest('.bm-marker-poi') || el.closest('[class*="marker"]') || el;
+	}
+
+	function ensureModelContainer(markerEl) {
+		if (!markerEl) return null;
+		let container = markerEl.querySelector('.bmopm-3d-model');
+		if (!container) {
+			container = document.createElement('div');
+			container.className = 'bmopm-3d-model';
+			// Insert near the icon if possible, otherwise append to marker
+			const icon = markerEl.querySelector('.bm-marker-poi-icon');
+			if (icon && icon.parentElement === markerEl) {
+				icon.insertAdjacentElement('afterend', container);
+			} else {
+				markerEl.appendChild(container);
+			}
+		}
+
+		// Populate required dataset fields for player-model.js
+		const uuid =
+			container.dataset.playerUuid ||
+			extractPlayerUuidFromClassList(markerEl) ||
+			extractPlayerUuidFromClassList(markerEl.querySelector('[class*="bmopm-player-"]')) ||
+			null;
+		if (uuid) container.dataset.playerUuid = uuid;
+
+		// Animate flag from backend style class (optional)
+		if (!container.dataset.animate) {
+			container.dataset.animate = markerEl.classList.contains('bmopm-animate') ? 'true' : 'false';
+		}
+
+		// Rotation/yaw/pitch currently not exposed in on-map DOM reliably; keep defaults
+		if (!container.dataset.yaw) container.dataset.yaw = '0';
+		if (!container.dataset.pitch) container.dataset.pitch = '0';
+
+		return container;
+	}
+
+	// Helper function to find markers using multiple strategies
+	function findMarkers() {
+		// Primary: markers that include our uuid class (robust even if bmopm-offline-player is applied to a child)
+		let candidates = Array.from(document.querySelectorAll('[class*="bmopm-player-"]'));
+		let markers = candidates
+			.map(normalizeToMarkerRoot)
+			.filter(Boolean);
+
+		// Fallback: direct class (older behavior)
+		if (markers.length === 0) {
+			markers = Array.from(document.getElementsByClassName('bmopm-offline-player'))
+				.map(normalizeToMarkerRoot)
+				.filter(Boolean);
+		}
+
+		// Deduplicate
+		return Array.from(new Set(markers));
+	}
+
 	function updateModelVisibility() {
 		console.log('[BMOPM] updateModelVisibility called, modelsEnabled:', modelsEnabled);
 		// Prevent infinite recursion
@@ -213,35 +346,7 @@
 		updatingVisibility = true;
 		
 		try {
-			// Try multiple ways to find markers - BlueMap might render them with different structure
-			let markers = document.getElementsByClassName('bmopm-offline-player');
-			
-			// If not found, try finding by data attributes or child elements
-			if (markers.length === 0) {
-				// Look for elements containing our 3D model containers
-				const modelContainers = document.querySelectorAll('.bmopm-3d-model');
-				if (modelContainers.length > 0) {
-					// Find parent markers
-					markers = Array.from(modelContainers).map(container => {
-						return container.closest('.bm-marker-poi, [class*="marker"], [class*="poi"]');
-					}).filter(m => m !== null);
-					console.log('[BMOPM] Found', markers.length, 'markers via 3D model containers');
-				}
-			}
-			
-			// Also try finding by data-player-uuid attribute
-			if (markers.length === 0) {
-				const uuidElements = document.querySelectorAll('[data-player-uuid]');
-				if (uuidElements.length > 0) {
-					markers = Array.from(uuidElements).map(el => {
-						return el.closest('.bm-marker-poi, [class*="marker"], [class*="poi"]');
-					}).filter(m => m !== null);
-					console.log('[BMOPM] Found', markers.length, 'markers via data-player-uuid');
-				}
-			}
-			
-			// Convert to array for easier handling
-			markers = Array.from(markers);
+			const markers = findMarkers();
 			console.log('[BMOPM] Found', markers.length, 'markers total');
 			
 			// Enhanced debugging: check for markers in different ways
@@ -289,7 +394,7 @@
 				}
 				
 				const icon = marker.querySelector('.bm-marker-poi-icon');
-				const modelContainer = marker.querySelector('.bmopm-3d-model');
+				const modelContainer = ensureModelContainer(marker);
 				console.log('[BMOPM] Marker', i, '- icon:', !!icon, 'modelContainer:', !!modelContainer);
 				
 				if (modelsEnabled) {
@@ -310,28 +415,8 @@
 				}
 			}
 		
-			// Update global state only if it changed (avoid triggering setter)
-			if (window.bmopmModelsEnabled !== modelsEnabled) {
-				// Temporarily remove the setter to avoid recursion
-				delete window.bmopmModelsEnabled;
-				window.bmopmModelsEnabled = modelsEnabled;
-				// Re-define the property
-				Object.defineProperty(window, 'bmopmModelsEnabled', {
-					get: () => modelsEnabled,
-					set: (value) => {
-						if (modelsEnabled !== value) {
-							modelsEnabled = value;
-							localStorage.setItem(STORAGE_KEY, value ? 'true' : 'false');
-							// Update button icon
-							const button = document.getElementById('bmopm-3d-toggle');
-							if (button) {
-								button.innerHTML = modelsEnabled ? '👤' : '🖼️';
-							}
-							updateModelVisibility();
-						}
-					}
-				});
-			}
+			// Expose global state for player-model.js
+			window.bmopmModelsEnabled = modelsEnabled;
 			
 			// Trigger model initialization if enabled
 			if (modelsEnabled) {
@@ -343,6 +428,8 @@
 						window.initializeModels();
 					}, 100);
 				} else {
+					// Proactively load player-model script if it hasn't been injected/registered yet
+					ensurePlayerModelScriptLoaded();
 					console.log('[BMOPM] initializeModels not found yet, waiting...');
 					// Wait for player-model.js to load and initialize
 					const checkForInit = setInterval(() => {
@@ -407,39 +494,7 @@
 	}
 	
 	// Helper function to find markers using multiple strategies
-	function findMarkers() {
-		let markers = Array.from(document.getElementsByClassName('bmopm-offline-player'));
-		
-		// If not found, try finding by data attributes or child elements
-		if (markers.length === 0) {
-			const modelContainers = document.querySelectorAll('.bmopm-3d-model');
-			if (modelContainers.length > 0) {
-				markers = Array.from(modelContainers).map(container => {
-					const parent = container.closest('.bm-marker-poi, [class*="marker"], [class*="poi"]');
-					if (parent && !parent.classList.contains('bmopm-offline-player')) {
-						parent.classList.add('bmopm-offline-player');
-					}
-					return parent;
-				}).filter(m => m !== null);
-			}
-		}
-		
-		// Also try finding by data-player-uuid attribute
-		if (markers.length === 0) {
-			const uuidElements = document.querySelectorAll('[data-player-uuid]');
-			if (uuidElements.length > 0) {
-				markers = Array.from(uuidElements).map(el => {
-					const parent = el.closest('.bm-marker-poi, [class*="marker"], [class*="poi"]');
-					if (parent && !parent.classList.contains('bmopm-offline-player')) {
-						parent.classList.add('bmopm-offline-player');
-					}
-					return parent;
-				}).filter(m => m !== null);
-			}
-		}
-		
-		return markers;
-	}
+	// (findMarkers is defined above; keep a single implementation)
 	
 	// Also use MutationObserver to detect when markers are added to DOM
 	const markerObserver = new MutationObserver(function(mutations) {
@@ -460,6 +515,7 @@
 	});
 	
 	// Also check periodically for markers (fallback)
+	let markerCheckCount = 0;
 	let markerCheckInterval = setInterval(() => {
 		const markers = findMarkers();
 		if (markers.length > 0) {
@@ -470,10 +526,9 @@
 			}
 		} else {
 			// Log periodically to help debug
-			const checkCount = (markerCheckInterval._checkCount || 0) + 1;
-			markerCheckInterval._checkCount = checkCount;
-			if (checkCount % 5 === 0) { // Every 5 seconds
-				console.log('[BMOPM] Still waiting for markers... (check', checkCount, ')');
+			markerCheckCount++;
+			if (markerCheckCount % 5 === 0) { // Every 5 seconds
+				console.log('[BMOPM] Still waiting for markers... (check', markerCheckCount, ')');
 			}
 		}
 	}, 1000);
@@ -499,8 +554,8 @@
 		console.log('Models enabled:', modelsEnabled);
 		console.log('Toggle button exists:', !!document.getElementById('bmopm-3d-toggle'));
 		
-		const markers = document.getElementsByClassName('bmopm-offline-player');
-		console.log('Markers with class "bmopm-offline-player":', markers.length);
+		const markers = findMarkers();
+		console.log('Markers found (findMarkers):', markers.length);
 		
 		if (markers.length === 0) {
 			console.log('\n--- Searching for markers in different ways ---');
@@ -600,43 +655,5 @@ class LocaleDateTime extends HTMLElement {
 
 
 customElements.define("bmopm-datetime", LocaleDateTime);
-
-// Load 3D player model script if enabled
-(function() {
-	function loadPlayerModelScript() {
-		if (document.querySelector('.bmopm-3d-enabled') && !document.querySelector('script[src*="bmopm-player-model"]')) {
-			const script = document.createElement('script');
-			// Try versioned paths - script will be loaded by BlueMap's registerScript, but we need to find the actual filename
-			// Look for any script with bmopm-player-model in the name
-			const existingScript = Array.from(document.querySelectorAll('script[src]')).find(s => s.src.includes('bmopm-player-model'));
-			if (existingScript) {
-				// Script already loaded by BlueMap
-				return;
-			}
-			// Try both paths with version
-			script.src = 'assets/bmopm-player-model-v3.6.js';
-			script.onerror = function() {
-				// Fallback to root path
-				script.src = 'bmopm-player-model-v3.6.js';
-				script.onerror = function() {
-					// Last fallback to old name
-					script.src = 'bmopm-player-model.js';
-				};
-			};
-			document.head.appendChild(script);
-		}
-	}
-	
-	// Try immediately
-	loadPlayerModelScript();
-	
-	// Also try after a delay in case markers load later
-	setTimeout(loadPlayerModelScript, 1000);
-	
-	// Listen for marker updates
-	if (typeof bluemap !== 'undefined' && bluemap.events) {
-		bluemap.events.addEventListener('markersUpdated', loadPlayerModelScript);
-	}
-})();
 
 })(); // End of main IIFE wrapper

@@ -85,7 +85,12 @@
 	display: none; /* Hidden by default, shown when toggle is on */
 	width: 64px;
 	height: 64px;
-	margin: 8px auto;
+	/* Match BlueMap's POI icon anchoring: center on marker position */
+	position: relative;
+	top: -32px;
+	left: -32px;
+	margin: 0;
+	pointer-events: none;
 }
 
 /* When 3D mode is enabled */

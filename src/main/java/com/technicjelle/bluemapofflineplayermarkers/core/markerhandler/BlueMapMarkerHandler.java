@@ -16,14 +16,57 @@ import java.util.Optional;
 import java.util.UUID;
 
 public class BlueMapMarkerHandler implements MarkerHandler {
-	@Override
-	public void add(Player player, BlueMapAPI api) {
-		//If this player's visibility is disabled on the map, don't add the marker.
-		if (!api.getWebApp().getPlayerVisibility(player.getPlayerUUID())) {
-			Singletons.getLogger().info("Skipping marker for " + player.getPlayerName() + " - player visibility disabled on map");
-			return;
+	private static String safeLower(String s) {
+		return s == null ? "" : s.toLowerCase();
+	}
+
+	private static int scoreMapForDimension(BlueMapMap map, String dimKeyLower) {
+		String mapId = safeLower(map.getId());
+		String worldId = safeLower(map.getWorld().getId());
+		String path = dimKeyLower.contains(":") ? dimKeyLower.substring(dimKeyLower.indexOf(':') + 1) : dimKeyLower;
+
+		int score = 0;
+
+		// Exact matches
+		if (worldId.equals(dimKeyLower) || mapId.equals(dimKeyLower)) score += 100;
+		if (worldId.equals(path) || mapId.equals(path)) score += 90;
+
+		// Vanilla-ish heuristics
+		if (dimKeyLower.contains("overworld")) {
+			if (mapId.equals("world") || worldId.equals("world")) score += 80;
+			if (mapId.contains("world") && !mapId.contains("nether") && !mapId.contains("end")) score += 40;
+			// Prefer shorter ids when multiple "world_*" exist
+			score += Math.max(0, 30 - mapId.length());
+		}
+		if (dimKeyLower.contains("nether")) {
+			if (mapId.contains("nether") || worldId.contains("nether")) score += 80;
+		}
+		if (dimKeyLower.contains("end")) {
+			if (mapId.contains("end") || worldId.contains("end")) score += 80;
 		}
 
+		// Generic contains match
+		if (!path.isEmpty() && (mapId.contains(path) || worldId.contains(path))) score += 60;
+
+		return score;
+	}
+
+	private static BlueMapWorld findBestWorldFallback(BlueMapAPI api, Optional<String> dimensionKey) {
+		String dimKeyLower = safeLower(dimensionKey.orElse(""));
+		BlueMapMap bestMap = null;
+		int bestScore = -1;
+		for (BlueMapMap map : api.getMaps()) {
+			int score = scoreMapForDimension(map, dimKeyLower);
+			if (score > bestScore) {
+				bestScore = score;
+				bestMap = map;
+			}
+		}
+		return bestMap != null && bestScore > 0 ? bestMap.getWorld() : null;
+	}
+
+	@Override
+	public void add(Player player, BlueMapAPI api) {
 		Config config = Singletons.getConfig();
 		//If this player's game mode is disabled on the map, don't add the marker.
 		if (config.isGameModeHidden(player.getPlayerData().getGameMode())) {
@@ -48,18 +91,11 @@ public class BlueMapMarkerHandler implements MarkerHandler {
 		// Try to get world by UUID first
 		BlueMapWorld blueMapWorld = api.getWorld(worldUUID.get()).orElse(null);
 		
-		// If not found, try to find overworld by iterating through all maps (common fallback)
+		// If not found, pick best world by matching against the player's dimension key and known map naming patterns.
 		if (blueMapWorld == null) {
-			Singletons.getLogger().info("World not found by UUID " + worldUUID.get() + ", trying to find overworld...");
-			for (BlueMapMap map : api.getMaps()) {
-				BlueMapWorld world = map.getWorld();
-				// Check if this map is for the overworld (common case)
-				if (map.getId().contains("world") && !map.getId().contains("nether") && !map.getId().contains("end")) {
-					blueMapWorld = world;
-					Singletons.getLogger().info("Using overworld map as fallback: " + map.getId());
-					break;
-				}
-			}
+			Optional<String> dimKey = player.getPlayerData().getDimensionKey();
+			Singletons.getLogger().info("World not found by UUID " + worldUUID.get() + ", trying to match by dimension key: " + dimKey.orElse("unknown"));
+			blueMapWorld = findBestWorldFallback(api, dimKey);
 		}
 		
 		if (blueMapWorld == null) {
@@ -100,10 +136,14 @@ public class BlueMapMarkerHandler implements MarkerHandler {
 				+ rotationData + " data-animate=\"" + config.animatePlayerModels() + "\"></div>";
 		
 		// Use base position (feet level) - frontend will handle positioning
+		// Add a UUID-derived style class so the frontend can reliably identify and parse the player UUID
+		// (Style classes must match: -?[_a-zA-Z]+[_a-zA-Z0-9-]*)
+		String playerUuidClass = "bmopm-player-" + player.getPlayerUUID();
+		String animateClass = config.animatePlayerModels() ? "bmopm-animate" : "bmopm-no-animate";
 		POIMarker.Builder markerBuilder = POIMarker.builder()
 				.label(player.getPlayerName())
 				.detail(detailHtml)
-				.styleClasses("bmopm-offline-player", "bmopm-3d-enabled")
+				.styleClasses("bmopm-offline-player", "bmopm-3d-enabled", playerUuidClass, animateClass)
 				.position(basePosition);
 
 		// Create an icon and marker for each map of this world
@@ -117,8 +157,9 @@ public class BlueMapMarkerHandler implements MarkerHandler {
 			// get marker-set (or create new marker set if none found)
 			MarkerSet markerSet = map.getMarkerSets().computeIfAbsent(Config.MARKER_SET_ID, id -> MarkerSet.builder()
 					.label(config.getMarkerSetName())
-					.toggleable(config.isToggleable())
-					.defaultHidden(config.isDefaultHidden())
+					// Always show offline markers: don't allow hiding them via marker-set toggles.
+					.toggleable(false)
+					.defaultHidden(false)
 					.build());
 
 			// add marker

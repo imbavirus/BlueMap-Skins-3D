@@ -39,20 +39,36 @@ public class PlayerNBTData implements PlayerData {
 		return new Vector3d(position[0], position[1], position[2]);
 	}
 
+	@Override
+	public Optional<String> getDimensionKey() {
+		if (dimension == null) return Optional.empty();
+
+		Object dimensionToGuess = dimension;
+		if (dimension instanceof java.util.Map) {
+			@SuppressWarnings("unchecked")
+			java.util.Map<String, Object> dimensionMap = (java.util.Map<String, Object>) dimension;
+			String namespace = (String) dimensionMap.getOrDefault("namespace", "minecraft");
+			String path = (String) dimensionMap.getOrDefault("path", "overworld");
+			dimensionToGuess = namespace + ":" + path;
+		}
+		if (dimensionToGuess == null) return Optional.empty();
+		return Optional.of(String.valueOf(dimensionToGuess));
+	}
+
 	@Nullable
 	public Optional<UUID> getWorldUUID() {
 		// BlueMap uses UUIDs generated from dimension keys, not the actual world UUID
 		// So we should use the dimension to generate the UUID that BlueMap expects
 		
 		// Handle dimension field - it might be a String, Integer, or Map (ResourceLocation compound tag)
-		Object dimensionToGuess = dimension;
-		if (dimension instanceof java.util.Map) {
-			// Dimension is stored as a ResourceLocation compound tag (Map with "namespace" and "path")
-			@SuppressWarnings("unchecked")
-			java.util.Map<String, Object> dimensionMap = (java.util.Map<String, Object>) dimension;
-			String namespace = (String) dimensionMap.getOrDefault("namespace", "minecraft");
-			String path = (String) dimensionMap.getOrDefault("path", "overworld");
-			dimensionToGuess = namespace + ":" + path;
+		Object dimensionToGuess;
+		Optional<String> dimKey = getDimensionKey();
+		if (dimKey.isPresent()) {
+			dimensionToGuess = dimKey.get();
+		} else {
+			dimensionToGuess = dimension;
+		}
+		if (dimensionToGuess != null && dimensionToGuess != dimension) {
 			Singletons.getLogger().info("Dimension parsed from compound tag: " + dimensionToGuess);
 		} else if (dimension != null) {
 			Singletons.getLogger().info("Dimension type: " + dimension.getClass().getName() + ", value: " + dimension);
