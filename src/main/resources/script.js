@@ -12,6 +12,9 @@
 	window.bmopmScriptLoaded = true;
 	console.log('[BMOPM] script.js loaded');
 	
+	// Flag to prevent infinite loops when we make DOM changes
+	let isUpdatingDOM = false;
+	
 	// Immediate debug function (available right away, no rebuild needed)
 	// This will be replaced by the full debug function later, but helps with immediate debugging
 	if (!window.bmopmDebug) {
@@ -284,30 +287,71 @@
 
 	function ensureModelContainer(markerEl) {
 		if (!markerEl) return null;
-		let container = markerEl.querySelector('.bmopm-3d-model');
+		
+		// Ensure we're working with the marker root, not a child
+		const markerRoot = markerEl.closest('.bm-marker-poi') || markerEl;
+		
+		// Ensure marker root has positioning context for absolute children
+		const rootStyles = window.getComputedStyle(markerRoot);
+		if (rootStyles.position === 'static') {
+			markerRoot.style.position = 'relative';
+			console.log('[BMOPM] Set marker root position to relative');
+		}
+		
+		let container = markerRoot.querySelector('.bmopm-3d-model');
 		if (!container) {
 			container = document.createElement('div');
 			container.className = 'bmopm-3d-model';
-			// Insert near the icon if possible, otherwise append to marker
-			const icon = markerEl.querySelector('.bm-marker-poi-icon');
-			if (icon && icon.parentElement === markerEl) {
-				icon.insertAdjacentElement('afterend', container);
-			} else {
-				markerEl.appendChild(container);
+			
+			// ALWAYS append directly to marker root, never to children
+			// This ensures the container is positioned correctly relative to the marker
+			markerRoot.appendChild(container);
+			console.log('[BMOPM] Appended container directly to marker root');
+			
+			// Verify it's in the right place
+			const actualParent = container.parentElement;
+			const parentClass = actualParent ? actualParent.className : 'none';
+			console.log('[BMOPM] Container parent after creation:', actualParent ? actualParent.tagName + '.' + parentClass : 'none');
+			
+			// If it's in the wrong place, move it
+			if (actualParent && !actualParent.classList.contains('bm-marker-poi')) {
+				console.warn('[BMOPM] Container in wrong parent! Moving to marker root...');
+				isUpdatingDOM = true;
+				markerRoot.appendChild(container);
+				setTimeout(() => { isUpdatingDOM = false; }, 100);
+				console.log('[BMOPM] Container moved to marker root, new parent:', container.parentElement ? container.parentElement.tagName + '.' + container.parentElement.className : 'none');
+			}
+		} else {
+			// Container exists - verify it's in the right place
+			const actualParent = container.parentElement;
+			if (actualParent && !actualParent.classList.contains('bm-marker-poi')) {
+				// Only move if we haven't moved it recently (prevent infinite loop)
+				const lastMoveTime = container.dataset.lastMoveTime || '0';
+				const now = Date.now();
+				if (now - parseInt(lastMoveTime) > 1000) { // Only move if last move was >1s ago
+					console.warn('[BMOPM] Existing container in wrong parent! Moving to marker root...');
+					isUpdatingDOM = true;
+					markerRoot.appendChild(container);
+					container.dataset.lastMoveTime = now.toString();
+					setTimeout(() => { isUpdatingDOM = false; }, 100);
+					console.log('[BMOPM] Container moved to marker root');
+				} else {
+					console.log('[BMOPM] Container in wrong parent but recently moved, skipping to prevent loop');
+				}
 			}
 		}
 
 		// Populate required dataset fields for player-model.js
 		const uuid =
 			container.dataset.playerUuid ||
-			extractPlayerUuidFromClassList(markerEl) ||
-			extractPlayerUuidFromClassList(markerEl.querySelector('[class*="bmopm-player-"]')) ||
+			extractPlayerUuidFromClassList(markerRoot) ||
+			extractPlayerUuidFromClassList(markerRoot.querySelector('[class*="bmopm-player-"]')) ||
 			null;
 		if (uuid) container.dataset.playerUuid = uuid;
 
 		// Animate flag from backend style class (optional)
 		if (!container.dataset.animate) {
-			container.dataset.animate = markerEl.classList.contains('bmopm-animate') ? 'true' : 'false';
+			container.dataset.animate = markerRoot.classList.contains('bmopm-animate') ? 'true' : 'false';
 		}
 
 		// Rotation/yaw/pitch currently not exposed in on-map DOM reliably; keep defaults
@@ -330,6 +374,18 @@
 			markers = Array.from(document.getElementsByClassName('bmopm-offline-player'))
 				.map(normalizeToMarkerRoot)
 				.filter(Boolean);
+		}
+
+		// Fallback 2: search all POI markers for our classes in their children
+		if (markers.length === 0) {
+			const allPoiMarkers = Array.from(document.querySelectorAll('.bm-marker-poi'));
+			markers = allPoiMarkers.filter(poi => {
+				// Check if this POI marker or any of its children has our classes
+				return poi.classList.contains('bmopm-offline-player') ||
+				       poi.querySelector('[class*="bmopm-player-"]') ||
+				       poi.querySelector('.bmopm-3d-model') ||
+				       poi.querySelector('[data-player-uuid]');
+			});
 		}
 
 		// Deduplicate
@@ -374,13 +430,43 @@
 				const poiMarkers = document.querySelectorAll('.bm-marker-poi');
 				console.log('[BMOPM] Debug: Found', poiMarkers.length, 'POI markers total');
 				if (poiMarkers.length > 0) {
+					// Log the first few markers' classes for debugging
+					Array.from(poiMarkers).slice(0, 3).forEach((poi, idx) => {
+						console.log('[BMOPM] Debug: POI marker', idx, 'classes:', Array.from(poi.classList).join(', '));
+						// Check for any child elements with our classes
+						const children = poi.querySelectorAll('[class*="bmopm"]');
+						if (children.length > 0) {
+							console.log('[BMOPM] Debug: POI marker', idx, 'has', children.length, 'children with bmopm classes');
+							children.forEach((child, cidx) => {
+								console.log('[BMOPM] Debug:   Child', cidx, 'classes:', Array.from(child.classList).join(', '));
+							});
+						}
+					});
+					
 					// Check if any contain our classes or data attributes
 					const ourMarkers = Array.from(poiMarkers).filter(poi => {
 						return poi.classList.contains('bmopm-offline-player') ||
 						       poi.querySelector('.bmopm-3d-model') ||
-						       poi.querySelector('[data-player-uuid]');
+						       poi.querySelector('[data-player-uuid]') ||
+						       poi.querySelector('[class*="bmopm-player-"]');
 					});
 					console.log('[BMOPM] Debug: Found', ourMarkers.length, 'POI markers that might be ours');
+					
+					// If we found POI markers but none match, try to find by label text
+					if (ourMarkers.length === 0 && poiMarkers.length > 0) {
+						console.log('[BMOPM] Debug: Trying to find markers by label text...');
+						const markersByLabel = Array.from(poiMarkers).filter(poi => {
+							const label = poi.querySelector('.bm-marker-poi-label, [class*="label"]');
+							return label && label.textContent && label.textContent.trim().length > 0;
+						});
+						console.log('[BMOPM] Debug: Found', markersByLabel.length, 'POI markers with labels');
+						if (markersByLabel.length > 0) {
+							markersByLabel.forEach((poi, idx) => {
+								const label = poi.querySelector('.bm-marker-poi-label, [class*="label"]');
+								console.log('[BMOPM] Debug: Marker', idx, 'label:', label ? label.textContent : 'none');
+							});
+						}
+					}
 				}
 			}
 			
@@ -402,16 +488,55 @@
 					if (icon) icon.style.display = 'none';
 					if (modelContainer) {
 						modelContainer.style.display = 'block';
+						modelContainer.style.visibility = 'visible';
+						modelContainer.style.opacity = '1';
+						// Force visibility with !important via setProperty
+						modelContainer.style.setProperty('display', 'block', 'important');
+						modelContainer.style.setProperty('visibility', 'visible', 'important');
 						console.log('[BMOPM] Showing 3D model container');
+						
+						// Verify it's actually visible
+						setTimeout(() => {
+							const computed = window.getComputedStyle(modelContainer);
+							console.log('[BMOPM] Container visibility after setting:', {
+								display: computed.display,
+								visibility: computed.visibility,
+								opacity: computed.opacity,
+								width: computed.width,
+								height: computed.height,
+								position: computed.position,
+								top: computed.top,
+								left: computed.left
+							});
+							
+							// Check if canvas exists and is visible
+							const canvas = modelContainer.querySelector('canvas');
+							if (canvas) {
+								const canvasComputed = window.getComputedStyle(canvas);
+								console.log('[BMOPM] Canvas visibility:', {
+									display: canvasComputed.display,
+									visibility: canvasComputed.visibility,
+									opacity: canvasComputed.opacity,
+									width: canvasComputed.width,
+									height: canvasComputed.height,
+									clientWidth: canvas.clientWidth,
+									clientHeight: canvas.clientHeight
+								});
+							} else {
+								console.warn('[BMOPM] No canvas found in container!');
+							}
+						}, 50);
 					}
 					// Adjust position for 3D models (feet level)
 					marker.classList.add('bmopm-3d-mode');
+					console.log('[BMOPM] Added bmopm-3d-mode class to marker, has class:', marker.classList.contains('bmopm-3d-mode'));
 				} else {
 					// Show icons, hide 3D models
 					if (icon) icon.style.display = 'block';
 					if (modelContainer) modelContainer.style.display = 'none';
 					// Adjust position for icons (head level)
 					marker.classList.remove('bmopm-3d-mode');
+					console.log('[BMOPM] Removed bmopm-3d-mode class from marker');
 				}
 			}
 		
@@ -498,6 +623,11 @@
 	
 	// Also use MutationObserver to detect when markers are added to DOM
 	const markerObserver = new MutationObserver(function(mutations) {
+		// Skip if we're the ones making changes
+		if (isUpdatingDOM) {
+			return;
+		}
+		
 		const markers = findMarkers();
 		if (markers.length > 0) {
 			console.log('[BMOPM] Markers detected in DOM:', markers.length);

@@ -80,7 +80,7 @@ public class BlueMapOfflinePlayerMarkers {
 				}
 				
 				// Use versioned filenames to force cache refresh
-				String version = "v4.3";
+				String version = "v5.4";
 				String scriptName = "bmopm-" + version + ".js";
 				String playerModelName = "bmopm-player-model-" + version + ".js";
 				String styleName = "bmopm-" + version + ".css";

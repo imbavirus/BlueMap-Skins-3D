@@ -86,11 +86,12 @@
 	width: 64px;
 	height: 64px;
 	/* Match BlueMap's POI icon anchoring: center on marker position */
-	position: relative;
+	position: absolute;
 	top: -32px;
 	left: -32px;
 	margin: 0;
 	pointer-events: none;
+	z-index: 10; /* Ensure it's above other elements */
 }
 
 /* When 3D mode is enabled */

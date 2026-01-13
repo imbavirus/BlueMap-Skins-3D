@@ -210,37 +210,303 @@
 		return { group, leftArm, rightArm, leftLeg, rightLeg };
 	}
 
-	// Load player skin texture
+	// Create a default Steve skin texture (64x64) matching Minecraft format
+	// Note: BoxGeometry uses default UVs, so the texture will be stretched across each face
+	// This creates a simple visible texture that works with default UV mapping
+	function createDefaultSteveSkin() {
+		const canvas = document.createElement('canvas');
+		canvas.width = 64;
+		canvas.height = 64;
+		const ctx = canvas.getContext('2d');
+		
+		// Steve skin colors (more accurate)
+		const skinColor = '#DBB077'; // Light brown skin
+		const shirtColor = '#3E6B00'; // Dark green shirt
+		const pantsColor = '#2C4A00'; // Darker green pants
+		const hairColor = '#2D1810'; // Dark brown hair
+		const eyeColor = '#000000'; // Black eyes
+		
+		// Fill entire canvas with skin color as base (will be visible on all faces)
+		ctx.fillStyle = skinColor;
+		ctx.fillRect(0, 0, 64, 64);
+		
+		// Add a simple pattern that will be visible regardless of UV mapping
+		// Create a checkerboard-like pattern for visibility
+		ctx.fillStyle = shirtColor;
+		for (let y = 0; y < 64; y += 8) {
+			for (let x = 0; x < 64; x += 8) {
+				if ((x + y) % 16 === 0) {
+					ctx.fillRect(x, y, 8, 8);
+				}
+			}
+		}
+		
+		// Add some detail in the center (head area)
+		ctx.fillStyle = hairColor;
+		ctx.fillRect(24, 8, 16, 8); // Hair band
+		ctx.fillStyle = eyeColor;
+		ctx.fillRect(20, 16, 4, 4); // Left eye
+		ctx.fillRect(40, 16, 4, 4); // Right eye
+		
+		// Body area
+		ctx.fillStyle = shirtColor;
+		ctx.fillRect(16, 32, 32, 16);
+		
+		// Legs area
+		ctx.fillStyle = pantsColor;
+		ctx.fillRect(16, 48, 16, 16);
+		ctx.fillRect(32, 48, 16, 16);
+		
+		// HEAD (top section: 8x8x8)
+		// Front face (8x8 at 8,0)
+		ctx.fillStyle = skinColor;
+		ctx.fillRect(8, 0, 8, 8);
+		// Hair overlay on front
+		ctx.fillStyle = hairColor;
+		ctx.fillRect(8, 0, 8, 1); // Top hair
+		ctx.fillRect(8, 0, 1, 8); // Left hair
+		ctx.fillRect(15, 0, 1, 8); // Right hair
+		// Eyes
+		ctx.fillStyle = eyeColor;
+		ctx.fillRect(10, 2, 2, 2); // Left eye
+		ctx.fillRect(12, 2, 2, 2); // Right eye
+		
+		// Right face (8x8 at 0,8)
+		ctx.fillStyle = skinColor;
+		ctx.fillRect(0, 8, 8, 8);
+		ctx.fillStyle = hairColor;
+		ctx.fillRect(0, 8, 1, 8); // Hair on right side
+		
+		// Left face (8x8 at 16,8)
+		ctx.fillStyle = skinColor;
+		ctx.fillRect(16, 8, 8, 8);
+		ctx.fillStyle = hairColor;
+		ctx.fillRect(23, 8, 1, 8); // Hair on left side
+		
+		// Back face (8x8 at 24,8)
+		ctx.fillStyle = skinColor;
+		ctx.fillRect(24, 8, 8, 8);
+		ctx.fillStyle = hairColor;
+		ctx.fillRect(24, 8, 8, 8); // Hair covers back
+		
+		// Top face (8x8 at 8,8)
+		ctx.fillStyle = hairColor;
+		ctx.fillRect(8, 8, 8, 8);
+		
+		// BODY/TORSO (middle section: 8x12x4)
+		// Front (8x12 at 20,16)
+		ctx.fillStyle = shirtColor;
+		ctx.fillRect(20, 16, 8, 12);
+		ctx.fillStyle = skinColor;
+		ctx.fillRect(20, 20, 8, 4); // Skin showing at bottom
+		
+		// Right side (4x12 at 16,20)
+		ctx.fillStyle = shirtColor;
+		ctx.fillRect(16, 20, 4, 12);
+		
+		// Left side (4x12 at 28,20)
+		ctx.fillStyle = shirtColor;
+		ctx.fillRect(28, 20, 4, 12);
+		
+		// Back (8x12 at 32,20)
+		ctx.fillStyle = shirtColor;
+		ctx.fillRect(32, 20, 8, 12);
+		
+		// RIGHT ARM (4x12x4)
+		// Front (4x12 at 44,16)
+		ctx.fillStyle = skinColor;
+		ctx.fillRect(44, 16, 4, 12);
+		
+		// Left side (4x12 at 40,20)
+		ctx.fillStyle = skinColor;
+		ctx.fillRect(40, 20, 4, 12);
+		
+		// Right side (4x12 at 48,20)
+		ctx.fillStyle = skinColor;
+		ctx.fillRect(48, 20, 4, 12);
+		
+		// Back (4x12 at 52,20)
+		ctx.fillStyle = skinColor;
+		ctx.fillRect(52, 20, 4, 12);
+		
+		// LEFT ARM (4x12x4)
+		// Front (4x12 at 36,48)
+		ctx.fillStyle = skinColor;
+		ctx.fillRect(36, 48, 4, 12);
+		
+		// Right side (4x12 at 32,52)
+		ctx.fillStyle = skinColor;
+		ctx.fillRect(32, 52, 4, 12);
+		
+		// Left side (4x12 at 40,52)
+		ctx.fillStyle = skinColor;
+		ctx.fillRect(40, 52, 4, 12);
+		
+		// Back (4x12 at 44,52)
+		ctx.fillStyle = skinColor;
+		ctx.fillRect(44, 52, 4, 12);
+		
+		// RIGHT LEG (4x12x4)
+		// Front (4x12 at 4,16)
+		ctx.fillStyle = pantsColor;
+		ctx.fillRect(4, 16, 4, 12);
+		
+		// Right side (4x12 at 0,20)
+		ctx.fillStyle = pantsColor;
+		ctx.fillRect(0, 20, 4, 12);
+		
+		// Left side (4x12 at 8,20)
+		ctx.fillStyle = pantsColor;
+		ctx.fillRect(8, 20, 4, 12);
+		
+		// Back (4x12 at 12,20)
+		ctx.fillStyle = pantsColor;
+		ctx.fillRect(12, 20, 4, 12);
+		
+		// LEFT LEG (4x12x4)
+		// Front (4x12 at 20,48)
+		ctx.fillStyle = pantsColor;
+		ctx.fillRect(20, 48, 4, 12);
+		
+		// Right side (4x12 at 16,52)
+		ctx.fillStyle = pantsColor;
+		ctx.fillRect(16, 52, 4, 12);
+		
+		// Left side (4x12 at 24,52)
+		ctx.fillStyle = pantsColor;
+		ctx.fillRect(24, 52, 4, 12);
+		
+		// Back (4x12 at 28,52)
+		ctx.fillStyle = pantsColor;
+		ctx.fillRect(28, 52, 4, 12);
+		
+		// Convert canvas to texture
+		const texture = new THREE_NS.Texture(canvas);
+		texture.magFilter = THREE_NS.NearestFilter;
+		texture.minFilter = THREE_NS.NearestFilter;
+		texture.needsUpdate = true;
+		texture.flipY = false; // Minecraft textures are not flipped
+		
+		// Cache the default texture
+		skinCache.set('__default__', texture);
+		
+		console.log('[BMOPM] Created default Steve skin texture, size:', canvas.width, 'x', canvas.height);
+		
+		return texture;
+	}
+
+	// Load player skin texture using Mojang's official API
 	function loadPlayerSkin(uuid, callback) {
 		if (skinCache.has(uuid)) {
+			console.log('[BMOPM] Using cached skin for', uuid);
 			callback(skinCache.get(uuid));
 			return;
 		}
 
 		const textureLoader = new THREE_NS.TextureLoader();
-		const skinUrl = `https://crafatar.com/skins/${uuid}`;
 		
-		textureLoader.load(
-			skinUrl,
-			function(texture) {
-				texture.magFilter = THREE_NS.NearestFilter;
-				texture.minFilter = THREE_NS.NearestFilter;
-				skinCache.set(uuid, texture);
-				callback(texture);
-			},
-			undefined,
-			function(error) {
-				console.warn(`[BMOPM] Failed to load skin for ${uuid}:`, error);
-				// Use default texture
-				const defaultTexture = new THREE_NS.TextureLoader().load('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==');
-				skinCache.set(uuid, defaultTexture);
-				callback(defaultTexture);
-			}
-		);
+		// Use Mojang's official skin API (has proper CORS headers)
+		// UUID needs to be without dashes for Mojang API
+		const uuidNoDashes = uuid.replace(/-/g, '');
+		const profileUrl = `https://sessionserver.mojang.com/session/minecraft/profile/${uuidNoDashes}`;
+		
+		console.log('[BMOPM] Fetching skin URL from Mojang API for', uuid);
+		fetch(profileUrl)
+			.then(response => {
+				if (!response.ok) {
+					throw new Error(`HTTP ${response.status}`);
+				}
+				return response.json();
+			})
+			.then(profile => {
+				// Extract texture URL from profile
+				if (!profile.properties || !Array.isArray(profile.properties)) {
+					throw new Error('No properties in profile');
+				}
+				
+				const texturesProperty = profile.properties.find(p => p.name === 'textures');
+				if (!texturesProperty) {
+					throw new Error('No textures property');
+				}
+				
+				const textures = JSON.parse(atob(texturesProperty.value));
+				const skinUrl = textures.textures?.SKIN?.url;
+				
+				if (!skinUrl) {
+					throw new Error('No skin URL in textures');
+				}
+				
+				console.log('[BMOPM] Got skin URL from Mojang API:', skinUrl);
+				
+				// Load texture from Mojang's CDN (should have CORS headers)
+				textureLoader.load(
+					skinUrl,
+					function(texture) {
+						console.log('[BMOPM] Skin loaded successfully from Mojang CDN for', uuid);
+						texture.magFilter = THREE_NS.NearestFilter;
+						texture.minFilter = THREE_NS.NearestFilter;
+						skinCache.set(uuid, texture);
+						callback(texture);
+					},
+					undefined,
+					function(error) {
+						console.warn(`[BMOPM] Failed to load skin from Mojang CDN for ${uuid}:`, error);
+						// Fallback: try Crafatar (might work in some browsers)
+						const crafatarUrl = `https://crafatar.com/skins/${uuid}`;
+						console.log('[BMOPM] Trying Crafatar fallback:', crafatarUrl);
+						textureLoader.load(
+							crafatarUrl,
+							function(texture) {
+								console.log('[BMOPM] Skin loaded successfully from Crafatar for', uuid);
+								texture.magFilter = THREE_NS.NearestFilter;
+								texture.minFilter = THREE_NS.NearestFilter;
+								skinCache.set(uuid, texture);
+								callback(texture);
+							},
+							undefined,
+							function(error2) {
+								console.warn(`[BMOPM] Failed to load skin for ${uuid} (all methods failed):`, error2);
+								console.log('[BMOPM] Using default Steve skin texture for', uuid);
+								// Use default Steve skin (64x64 pixelated texture)
+								// This is a simple gray Steve skin as fallback
+								const defaultSteveSkin = createDefaultSteveSkin();
+								skinCache.set(uuid, defaultSteveSkin);
+								callback(defaultSteveSkin);
+							}
+						);
+					}
+				);
+			})
+			.catch(error => {
+				console.warn(`[BMOPM] Failed to fetch profile from Mojang API for ${uuid}:`, error);
+				// Fallback: try Crafatar directly
+				const crafatarUrl = `https://crafatar.com/skins/${uuid}`;
+				console.log('[BMOPM] Trying Crafatar fallback:', crafatarUrl);
+				textureLoader.load(
+					crafatarUrl,
+					function(texture) {
+						console.log('[BMOPM] Skin loaded successfully from Crafatar for', uuid);
+						texture.magFilter = THREE_NS.NearestFilter;
+						texture.minFilter = THREE_NS.NearestFilter;
+						skinCache.set(uuid, texture);
+						callback(texture);
+					},
+					undefined,
+					function(error2) {
+						console.warn(`[BMOPM] Failed to load skin for ${uuid} (all methods failed):`, error2);
+						console.log('[BMOPM] Using default Steve skin texture for', uuid);
+						// Use default Steve skin
+						const defaultSteveSkin = createDefaultSteveSkin();
+						skinCache.set(uuid, defaultSteveSkin);
+						callback(defaultSteveSkin);
+					}
+				);
+			});
 	}
 
 	// Create 3D model scene for a marker
 	function createModelScene(container, playerUuid, yaw, pitch, animate) {
+		console.log('[BMOPM] createModelScene called for', playerUuid);
 		if (!THREE_NS) {
 			throw new Error('THREE namespace not resolved');
 		}
@@ -254,7 +520,36 @@
 		canvas.style.width = width + 'px';
 		canvas.style.height = height + 'px';
 		canvas.style.imageRendering = 'pixelated';
+		canvas.style.display = 'block'; // Ensure canvas is visible
+		canvas.style.position = 'relative'; // Ensure positioning works
 		container.appendChild(canvas);
+		console.log('[BMOPM] Canvas created and appended');
+		
+		// Debug: Check container and canvas visibility
+		const containerStyles = window.getComputedStyle(container);
+		const canvasStyles = window.getComputedStyle(canvas);
+		console.log('[BMOPM] Container visibility:', {
+			display: containerStyles.display,
+			visibility: containerStyles.visibility,
+			opacity: containerStyles.opacity,
+			width: containerStyles.width,
+			height: containerStyles.height,
+			position: containerStyles.position,
+			top: containerStyles.top,
+			left: containerStyles.left,
+			zIndex: containerStyles.zIndex
+		});
+		console.log('[BMOPM] Canvas visibility:', {
+			display: canvasStyles.display,
+			visibility: canvasStyles.visibility,
+			opacity: canvasStyles.opacity,
+			width: canvasStyles.width,
+			height: canvasStyles.height,
+			position: canvasStyles.position
+		});
+		console.log('[BMOPM] Container in DOM:', container.isConnected);
+		console.log('[BMOPM] Canvas in DOM:', canvas.isConnected);
+		console.log('[BMOPM] Container parent:', container.parentElement ? container.parentElement.tagName + '.' + container.parentElement.className : 'none');
 		
 		// Create scene
 		const scene = new THREE_NS.Scene();
@@ -265,6 +560,7 @@
 		// Create player model
 		const modelData = createPlayerModel();
 		const model = modelData.group;
+		console.log('[BMOPM] Player model created');
 		
 		// Set rotation
 		if (yaw !== undefined) {
@@ -272,13 +568,54 @@
 		}
 		
 		// Load skin and apply
+		console.log('[BMOPM] Loading skin for', playerUuid);
 		loadPlayerSkin(playerUuid, function(texture) {
+			console.log('[BMOPM] Skin loaded for', playerUuid, 'applying to model');
+			console.log('[BMOPM] Texture details:', {
+				width: texture.image ? texture.image.width : 'no image',
+				height: texture.image ? texture.image.height : 'no image',
+				needsUpdate: texture.needsUpdate,
+				format: texture.format,
+				isDefault: texture === skinCache.get('__default__')
+			});
+			
+			// Apply texture/material to each body part
+			// Note: BoxGeometry has default UVs that don't match Minecraft skin layout perfectly,
+			// but the texture will still be visible
+			let meshCount = 0;
 			model.traverse(function(child) {
 				if (child instanceof THREE_NS.Mesh) {
-					const material = new THREE_NS.MeshBasicMaterial({ map: texture });
+					meshCount++;
+					// Create material with texture
+					const material = new THREE_NS.MeshBasicMaterial({ 
+						map: texture,
+						side: THREE_NS.DoubleSide, // Show both sides
+						transparent: false
+					});
+					
+					// Ensure texture is ready
+					if (texture.image && texture.image.complete) {
+						texture.needsUpdate = true;
+					}
+					
 					child.material = material;
+					
+					// Name meshes for easier debugging
+					const pos = child.position;
+					if (pos.y > 1.0) child.name = 'head';
+					else if (pos.y > 0.3 && Math.abs(pos.x) < 0.2) child.name = 'body';
+					else if (pos.x < -0.2) child.name = 'leftArm';
+					else if (pos.x > 0.2) child.name = 'rightArm';
+					else if (pos.x < 0) child.name = 'leftLeg';
+					else child.name = 'rightLeg';
+					
+					console.log('[BMOPM] Applied texture to', child.name, 'mesh at', pos.x.toFixed(2), pos.y.toFixed(2), pos.z.toFixed(2));
 				}
 			});
+			console.log('[BMOPM] Applied texture to', meshCount, 'mesh(es)');
+			
+			// Force render update
+			renderer.render(scene, camera);
 		});
 		
 		scene.add(model);
@@ -294,6 +631,7 @@
 		const renderer = new THREE_NS.WebGLRenderer({ canvas: canvas, alpha: true, antialias: false });
 		renderer.setSize(width, height);
 		renderer.setPixelRatio(1);
+		console.log('[BMOPM] Renderer created and configured');
 		
 		// Animation
 		let animationFrame = 0;
@@ -310,6 +648,50 @@
 			renderer.render(scene, camera);
 			animationFrame = requestAnimationFrame(animateModel);
 		}
+		
+		console.log('[BMOPM] Starting animation loop for', playerUuid);
+		
+		// Do an initial render to check if WebGL is working
+		renderer.render(scene, camera);
+		
+		// Check WebGL context and canvas state after first render
+		setTimeout(() => {
+			// Check WebGL context
+			const gl = renderer.getContext();
+			if (gl) {
+				console.log('[BMOPM] WebGL context:', {
+					version: gl.getParameter(gl.VERSION),
+					vendor: gl.getParameter(gl.VENDOR),
+					renderer: gl.getParameter(gl.RENDERER)
+				});
+			} else {
+				console.warn('[BMOPM] No WebGL context available!');
+			}
+			
+			// Check canvas dimensions and visibility
+			console.log('[BMOPM] Canvas state:', {
+				canvasWidth: canvas.width,
+				canvasHeight: canvas.height,
+				clientWidth: canvas.clientWidth,
+				clientHeight: canvas.clientHeight,
+				offsetWidth: canvas.offsetWidth,
+				offsetHeight: canvas.offsetHeight,
+				computedDisplay: window.getComputedStyle(canvas).display,
+				computedVisibility: window.getComputedStyle(canvas).visibility,
+				computedOpacity: window.getComputedStyle(canvas).opacity
+			});
+			
+			// Force container to be visible if it's hidden
+			const containerComputed = window.getComputedStyle(container);
+			if (containerComputed.display === 'none') {
+				console.warn('[BMOPM] Container is hidden! Forcing display: block');
+				container.style.display = 'block';
+			}
+			if (canvas.style.display === 'none') {
+				console.warn('[BMOPM] Canvas is hidden! Forcing display: block');
+				canvas.style.display = 'block';
+			}
+		}, 100);
 		
 		animateModel();
 		
@@ -334,24 +716,61 @@
 		}
 		
 		const modelContainers = document.querySelectorAll('.bmopm-3d-model');
-		modelContainers.forEach(function(container) {
+		console.log('[BMOPM] Found', modelContainers.length, 'model container(s)');
+		
+		modelContainers.forEach(function(container, index) {
 			// Only initialize visible models
 			const marker = container.closest('.bmopm-offline-player');
-			if (marker && !marker.classList.contains('bmopm-3d-mode')) {
-				return; // Skip if marker is not in 3D mode
+			const has3dMode = marker && marker.classList.contains('bmopm-3d-mode');
+			console.log('[BMOPM] Container', index, '- marker:', !!marker, 'has 3d-mode:', has3dMode);
+			
+			// If models are enabled globally but marker doesn't have the class yet, 
+			// it might be a timing issue - initialize anyway if the container is visible
+			if (marker && !has3dMode && modelsEnabled) {
+				console.log('[BMOPM] Container', index, '- marker missing 3d-mode class but models enabled globally, initializing anyway');
+				// Add the class now to ensure consistency
+				marker.classList.add('bmopm-3d-mode');
+			} else if (marker && !has3dMode) {
+				console.log('[BMOPM] Container', index, '- skipping (not in 3D mode)');
+				return; // Skip if marker is not in 3D mode and models aren't enabled
 			}
 			
-			if (container.dataset.initialized === 'true' || container.dataset.initFailed === 'true') return;
+			// Check if canvas already exists
+			const existingCanvas = container.querySelector('canvas');
+			if (existingCanvas) {
+				console.log('[BMOPM] Container', index, '- canvas already exists, skipping');
+				container.dataset.initialized = 'true';
+				return;
+			}
+			
+			// Only skip if explicitly marked as failed (not just initialized, since container might have been recreated)
+			if (container.dataset.initFailed === 'true') {
+				console.log('[BMOPM] Container', index, '- previous initialization failed, skipping');
+				return;
+			}
+			
+			// If marked as initialized but no canvas exists, reset and try again
+			if (container.dataset.initialized === 'true') {
+				console.log('[BMOPM] Container', index, '- marked as initialized but no canvas found, resetting and retrying');
+				container.dataset.initialized = 'false';
+			}
 			
 			const playerUuid = container.dataset.playerUuid;
-			if (!playerUuid) return;
+			if (!playerUuid) {
+				console.warn('[BMOPM] Container', index, '- missing playerUuid');
+				return;
+			}
+			
 			const yaw = parseFloat(container.dataset.yaw) || 0;
 			const pitch = parseFloat(container.dataset.pitch) || 0;
 			const animate = container.dataset.animate === 'true';
 			
+			console.log('[BMOPM] Initializing 3D model for', playerUuid, 'yaw:', yaw, 'pitch:', pitch, 'animate:', animate);
+			
 			try {
 				createModelScene(container, playerUuid, yaw, pitch, animate);
 				container.dataset.initialized = 'true';
+				console.log('[BMOPM] Successfully initialized 3D model for', playerUuid);
 			} catch (e) {
 				container.dataset.initFailed = 'true';
 				console.warn('[BMOPM] Failed to initialize 3D model for', playerUuid, e);
