@@ -747,6 +747,21 @@ function Upload-ToModrinth([string]$version, [array]$artifacts) {
   $tokenPreview = if ($mr.Token.Length -gt 10) { $mr.Token.Substring(0, 10) + "..." } else { "***" }
   Write-Host "Using Modrinth API token (length: $($mr.Token.Length), starts with: $tokenPreview)"
 
+  # Resolve slug -> base62 project id (hyphenated slugs are invalid in version metadata project_id)
+  $resolvedProjectId = $mr.ProjectId
+  try {
+    $projHeaders = @{ Authorization = $mr.Token; "User-Agent" = "BlueMapSkins3D-publish/1.0" }
+    $projInfo = Invoke-RestMethod -Uri "$($mr.BaseUrl)/v2/project/$($mr.ProjectId)" -Headers $projHeaders -Method Get -ErrorAction Stop
+    if ($projInfo.id) {
+      $resolvedProjectId = [string]$projInfo.id
+      if ($resolvedProjectId -ne $mr.ProjectId) {
+        Write-Host "Resolved Modrinth project '$($mr.ProjectId)' -> id $resolvedProjectId ($($projInfo.title))"
+      }
+    }
+  } catch {
+    Write-Warning "Could not resolve Modrinth project '$($mr.ProjectId)' (will send as-is): $($_.Exception.Message)"
+  }
+
   # Get Minecraft version from gradle.properties
   $gp = Get-Content -Path "gradle.properties"
   $mcLine = $gp | Where-Object { $_ -match '^minecraft_version=(.+)$' } | Select-Object -First 1
@@ -812,7 +827,7 @@ function Upload-ToModrinth([string]$version, [array]$artifacts) {
     loaders = $loadersArray
     release_channel = $releaseType
     featured = $false
-    project_id = $mr.ProjectId
+    project_id = $resolvedProjectId
     file_parts = @($fileName)
   }
 
