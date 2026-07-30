@@ -309,7 +309,8 @@ function Build-Mod() {
   # Use gradlew if available, otherwise try gradle
   $gradleCmd = if (Test-Path "gradlew.bat") { ".\gradlew.bat" } elseif (Test-Path "gradlew") { ".\gradlew" } else { "gradle" }
   
-  & $gradleCmd clean build
+  # Skip unit tests for release packaging (NeoForge test classpath is incomplete for offline CI)
+  & $gradleCmd clean build -x test
   if ($LASTEXITCODE -ne 0) {
     throw "Gradle build failed"
   }
