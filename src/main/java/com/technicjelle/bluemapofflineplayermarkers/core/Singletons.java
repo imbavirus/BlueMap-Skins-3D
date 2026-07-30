@@ -13,8 +13,10 @@ public class Singletons {
 	private static BMApiStatus bmApiStatus;
 
 	public static void init(Server server, Logger logger, Config config, MarkerHandler markerHandler, BMApiStatus bmApiStatus) {
-		if (Singletons.server != null || Singletons.logger != null || Singletons.config != null || Singletons.markerHandler != null || Singletons.bmApiStatus != null)
-			throw new RuntimeException("Singletons already initialized");
+		// Singleplayer re-enters worlds; replace any previous session instead of hard-failing
+		if (Singletons.server != null || Singletons.logger != null || Singletons.config != null || Singletons.markerHandler != null || Singletons.bmApiStatus != null) {
+			cleanup();
+		}
 
 		Singletons.server = server;
 		Singletons.logger = logger;

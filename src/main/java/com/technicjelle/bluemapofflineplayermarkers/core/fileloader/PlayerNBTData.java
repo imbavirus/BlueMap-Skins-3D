@@ -34,7 +34,7 @@ public class PlayerNBTData implements PlayerData {
 	}
 
 	public @Nullable Vector3d getPosition() {
-		if (position.length != 3) return null; // Position is broken
+		if (position == null || position.length != 3) return null; // Position is broken
 
 		return new Vector3d(position[0], position[1], position[2]);
 	}

@@ -64,6 +64,10 @@ dependencies {
     compileOnly 'de.bluecolored.bluemap:BlueMapAPI:2.7.2'
     // For test runs, we can add it as testCompileOnly so it's available for tests
     testCompileOnly 'de.bluecolored.bluemap:BlueMapAPI:2.7.2'
+
+    // BlueMap ships flow-math as a jar-in-jar module. Do NOT shade it into this mod —
+    // that causes: Modules bluemapofflineplayermarkers and flow.math export package com.flowpowered.math
+    compileOnly 'com.flowpowered:flow-math:1.0.3'
     
     // Utilities - these need to be shaded into the JAR
     // Exclude NeoForge transitive dependencies to avoid module conflicts
@@ -383,21 +387,36 @@ tasks.named('shadowJar').get().doLast {
 tasks.build.dependsOn shadowJar
 tasks.assemble.dependsOn shadowJar
 
-// Ensure run tasks don't depend on shadow jar and use a clean classpath
+// runServer / runClient: do NOT use shadowJar (ASM module clash with NeoForge 9.8).
+// Use plain jar + compile classpath with ASM stripped so NeoForge can own the module path.
 tasks.matching { it.name.startsWith('run') }.configureEach {
-    dependsOn.removeAll { it.name.contains('shadow') }
-    // Use runClasspath configuration that excludes ASM
+    dependsOn.removeAll { dep ->
+        def n = dep instanceof String ? dep : (dep.hasProperty('name') ? dep.name : dep.toString())
+        n.toString().toLowerCase().contains('shadow')
+    }
+    // Prefer plain jar over shadow for local runs
+    dependsOn 'jar'
     doFirst {
-        // Filter out ASM from classpath
         def classpathFiles = classpath.files.findAll { file ->
-            !file.name.contains('asm-tree') && 
-            !file.name.contains('asm-') && 
-            !file.path.contains('org.ow2.asm') && 
-            !file.path.contains('org.objectweb.asm')
+            def name = file.name.toLowerCase()
+            def path = file.path.toLowerCase().replace('\\', '/')
+            // Strip all ASM jars (NeoForge puts ASM 9.8 on the module path)
+            if (name.contains('asm-') || name == 'asm.jar') return false
+            if (path.contains('/org/ow2/asm/') || path.contains('/org.ow2.asm/')) return false
+            if (path.contains('/org/objectweb/asm/')) return false
+            // Prefer project classes over the fat shadow jar on the run classpath
+            if (name.startsWith('bluemapofflineplayermarkers') && name.endsWith('.jar')
+                    && path.contains('/build/libs/')) {
+                return false
+            }
+            return true
         }
         classpath = files(classpathFiles)
+        logger.lifecycle("run classpath filtered: ${classpathFiles.size()} entries (ASM stripped for NeoForge)")
     }
 }
+
+// Documented alternative: package for production with `gradlew shadowJar` only.
 
 // NeoForge userdev automatically handles NeoForm configuration
 

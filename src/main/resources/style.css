@@ -1,116 +1,237 @@
+/* BlueMap Offline Player Markers — styles (v9.0)
+   Body size set in JS = projected 1.8 world blocks (option B). */
 
-.bmopm-offline-player {
-	filter: grayscale(1);
-
-	/* Pixel Scaling filter, just in case */
-	-ms-interpolation-mode: nearest-neighbor;  /* IE 7+ (non-standard property) */
-	image-rendering: -webkit-crisp-edges; /* Safari 6 - 9 */
-	image-rendering: -moz-crisp-edges; /* Firefox 3.6 - 64 */
-	image-rendering: crisp-edges; /* Firefox 65+ */
-	image-rendering: pixelated; /* Chrome 41+, Edge 76+, Safari 10+ */
-}
-
-.bmopm-offline-player > .bm-marker-poi-icon {
-	width: 32px;
-	height: 32px;
-
-	/* can't use transform here because the poi-icon overwrites it already */
-	position: relative;
-	top: -16px;
-	left: -16px;
-
-	transition: width 0.3s, height 0.3s, top 0.3s, left 0.3s, opacity 0.3s !important;
-}
-
-.bmopm-offline-player > .bm-marker-poi-icon.bmopm-small {
-	width: 16px;
-	height: 16px;
-
-	top: -8px;
-	left: -8px;
-}
-
-.bmopm-offline-player > .bm-marker-poi-label {
-	white-space: nowrap;
-	max-width: unset !important;
-}
-
-.bmopm-offline-player > .bm-marker-poi-label > bmopm-datetime {
-	margin: 0.2em 0 0;
-	padding: 0;
-	font-size: 0.85em;
-}
-
-.bmopm-offline-player > .bm-marker-poi-label > i {
-	color: var(--theme-fg-light);
-}
-
-/* 3D Models Toggle Button */
-.bmopm-toggle-container {
-	display: flex;
-	align-items: center;
-	gap: 8px;
+/* Bottom-right control stack — away from BlueMap top-right icons */
+.bmopm-controls {
+	position: fixed !important;
+	right: 114px !important; /* clearly left of bottom-right corner (~100px from edge) */
+	bottom: 18px !important;
+	top: auto !important;
+	left: auto !important;
+	display: flex !important;
+	flex-direction: column !important;
+	gap: 8px !important;
+	z-index: 10050 !important;
+	pointer-events: auto !important;
 }
 
 .bmopm-3d-toggle-button {
-	background: var(--theme-bg, #2a2a2a);
-	border: 1px solid var(--theme-border, #444);
-	color: var(--theme-fg, #fff);
-	padding: 8px 12px;
-	border-radius: 4px;
+	background: rgba(30, 30, 36, 0.92);
+	border: 1px solid #555;
+	color: #eee;
+	padding: 8px 14px;
+	border-radius: 6px;
 	cursor: pointer !important;
-	font-size: 18px;
-	line-height: 1;
-	transition: background 0.2s, border-color 0.2s;
-	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+	font-size: 13px;
+	font-weight: 600;
+	font-family: system-ui, Segoe UI, Roboto, sans-serif;
+	min-width: 110px;
+	text-align: center;
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
 	pointer-events: auto !important;
-	z-index: 10001 !important;
-	position: relative;
-	user-select: none;
-	-webkit-user-select: none;
+	white-space: nowrap;
 }
-
 .bmopm-3d-toggle-button:hover {
-	background: var(--theme-bg-hover, #3a3a3a);
-	border-color: var(--theme-border-hover, #555);
+	border-color: #8cf;
+}
+.bmopm-3d-toggle-button.bmopm-active {
+	border-color: #6cf;
+	box-shadow: 0 0 0 1px #6cf, 0 2px 8px rgba(0, 0, 0, 0.4);
 }
 
-.bmopm-3d-toggle-button:active {
-	background: var(--theme-bg-active, #1a1a1a);
-	transform: translateY(1px);
+/* Kill broken world-overlay if cached */
+#bmopm-world-overlay {
+	display: none !important;
+	visibility: hidden !important;
+	pointer-events: none !important;
 }
 
-/* 3D Model Container */
-.bmopm-3d-model {
-	display: none; /* Hidden by default, shown when toggle is on */
-	width: 64px;
-	height: 64px;
-	/* Match BlueMap's POI icon anchoring: center on marker position */
-	position: absolute;
-	top: -32px;
-	left: -32px;
-	margin: 0;
-	pointer-events: none;
-	z-index: 10; /* Ensure it's above other elements */
+/* Floating figure: left/top/width/height set every frame from world projection */
+.bmopm-floating-figure {
+	position: fixed !important;
+	margin: 0 !important;
+	padding: 0 !important;
+	pointer-events: none !important;
+	z-index: 6 !important;
+	overflow: visible !important;
+	transform: none !important;
+	line-height: 0 !important;
+	box-sizing: border-box !important;
+}
+.bmopm-floating-figure canvas,
+.bmopm-floating-figure img.bmopm-body,
+.bmopm-floating-figure .bmopm-body-wrap {
+	width: 100% !important;
+	height: 100% !important;
+	display: block !important;
+	pointer-events: none !important;
+	image-rendering: pixelated !important;
+	filter: drop-shadow(1px 1px 2px rgba(0, 0, 0, 0.55));
+	object-fit: contain !important;
+	object-position: bottom center !important;
+}
+.bmopm-floating-offline canvas,
+.bmopm-floating-offline img.bmopm-body {
+	filter: grayscale(1) drop-shadow(1px 1px 2px rgba(0, 0, 0, 0.55)) !important;
 }
 
-/* When 3D mode is enabled */
-.bmopm-offline-player.bmopm-3d-mode .bm-marker-poi-icon {
+/* Offline head icon (when 3D off) */
+.bmopm-offline-player .bm-marker-poi-icon {
+	filter: grayscale(1);
+	image-rendering: pixelated;
+	width: 32px;
+	height: 32px;
+	position: relative;
+	top: -28px;
+	left: -16px;
+}
+
+.bmopm-offline-player .bm-marker-poi-label {
 	display: none !important;
 }
 
-.bmopm-offline-player.bmopm-3d-mode .bmopm-3d-model {
-	display: block;
+/* Offline nametag */
+.bmopm-nametag {
+	position: absolute !important;
+	left: 50% !important;
+	transform: translate(-50%, -100%) !important;
+	top: -8px !important;
+	z-index: 8;
+	pointer-events: none;
+	text-align: center;
+	white-space: nowrap;
+	line-height: 1.15;
+	font-family: system-ui, Segoe UI, Roboto, sans-serif;
+	text-shadow: 0 0 3px #000, 0 1px 2px #000, 1px 1px 0 #000;
+}
+.bmopm-nametag .bmopm-name {
+	color: #c8c8c8;
+	font-size: 12px;
+	font-weight: 600;
+}
+.bmopm-nametag .bmopm-status {
+	color: #909090;
+	font-size: 10px;
+	font-style: italic;
 }
 
-/* When icon mode (default) */
-.bmopm-offline-player:not(.bmopm-3d-mode) .bm-marker-poi-icon {
-	display: block;
+/* When 3D mode: nametag above body */
+.bmopm-offline-player.bmopm-3d-mode .bmopm-nametag {
+	top: auto;
+	bottom: 118px;
+	transform: translateX(-50%);
 }
 
-.bmopm-offline-player:not(.bmopm-3d-mode) .bmopm-3d-model {
+html.bmopm-hide-offline .bmopm-offline-player,
+.bmopm-offline-hidden {
+	display: none !important;
+	visibility: hidden !important;
+	pointer-events: none !important;
+}
+
+/* Full-body figure container (CSS2D) */
+.bmopm-3d-model {
 	display: none;
+	width: 64px !important;
+	height: 112px !important;
+	position: absolute !important;
+	left: 50% !important;
+	bottom: 0 !important;
+	transform: translateX(-50%);
+	transform-origin: 50% 100%;
+	margin: 0 !important;
+	padding: 0 !important;
+	pointer-events: none !important;
+	z-index: 6 !important;
+	overflow: visible !important;
+	line-height: 0 !important;
 }
 
-/* Note: Markers are positioned at feet level (for 3D models)
-   Icons are visually acceptable at this position, or can be adjusted via icon positioning if needed */
+.bmopm-3d-model canvas,
+.bmopm-3d-model .bmopm-canvas,
+.bmopm-3d-model img.bmopm-body,
+.bmopm-3d-model .bmopm-body-wrap {
+	display: block !important;
+	width: 64px !important;
+	height: 112px !important;
+	object-fit: contain !important;
+	object-position: bottom center !important;
+	image-rendering: pixelated !important;
+	pointer-events: none;
+	filter: drop-shadow(1px 1px 2px rgba(0, 0, 0, 0.55));
+	background: transparent !important;
+}
+
+/* Offline greyscale body only */
+.bmopm-offline-player:not(.bm-marker-player) .bmopm-3d-model canvas,
+.bmopm-offline-player:not(.bm-marker-player) .bmopm-3d-model .bmopm-canvas,
+.bmopm-offline-player:not(.bm-marker-player) .bmopm-3d-model img.bmopm-body,
+.bmopm-canvas-offline {
+	filter: grayscale(1) drop-shadow(1px 1px 2px rgba(0, 0, 0, 0.55)) !important;
+}
+
+/* Online: color */
+.bm-marker-player .bmopm-3d-model canvas,
+.bm-marker-player .bmopm-3d-model .bmopm-canvas {
+	filter: drop-shadow(1px 1px 2px rgba(0, 0, 0, 0.55)) !important;
+}
+.bm-marker-player .bmopm-nametag-offline {
+	display: none !important;
+}
+
+#map-container .bm-marker-player,
+.bm-marker-player {
+	overflow: visible !important;
+}
+
+body.bmopm-models-on .bm-marker-player.bmopm-3d-mode > img,
+body.bmopm-models-on .bm-marker-player.bmopm-3d-mode img[alt="playerhead"],
+.bm-marker-player.bmopm-3d-mode > img,
+.bm-marker-player.bmopm-3d-mode img[alt="playerhead"] {
+	display: none !important;
+	visibility: hidden !important;
+}
+
+.bm-marker-player .bm-player-name {
+	position: absolute !important;
+	top: -0.5em !important;
+	left: 50% !important;
+	transform: translate(-50%, -100%) !important;
+	z-index: 6;
+	white-space: nowrap;
+	pointer-events: none;
+}
+
+/* Online marker at head height — hang body down */
+.bm-marker-player.bmopm-3d-mode .bmopm-3d-model {
+	bottom: auto;
+	top: 0;
+	transform-origin: 50% 0%;
+	margin-top: -4px;
+}
+
+.bm-marker-poi.bmopm-3d-mode .bmopm-3d-model,
+.bmopm-offline-player.bmopm-3d-mode .bmopm-3d-model {
+	bottom: 0;
+	top: auto;
+	transform-origin: 50% 100%;
+}
+
+.bmopm-3d-mode .bm-marker-poi-icon {
+	display: none !important;
+	visibility: hidden !important;
+}
+/* Discovery hook only — visible body is .bmopm-floating-figure (fixed 64×112) */
+.bmopm-3d-mode > .bmopm-3d-model,
+.bmopm-3d-mode .bmopm-3d-model {
+	display: none !important;
+	width: 0 !important;
+	height: 0 !important;
+	overflow: hidden !important;
+	opacity: 0 !important;
+	pointer-events: none !important;
+}
+.bm-marker-poi:not(.bmopm-3d-mode) > .bmopm-3d-model,
+.bm-marker-player:not(.bmopm-3d-mode) > .bmopm-3d-model {
+	display: none !important;
+}

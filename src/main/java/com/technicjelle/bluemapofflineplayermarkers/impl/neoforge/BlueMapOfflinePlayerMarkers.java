@@ -5,8 +5,12 @@ import com.technicjelle.UpdateChecker;
 import com.technicjelle.bluemapofflineplayermarkers.core.BMApiStatus;
 import com.technicjelle.bluemapofflineplayermarkers.core.Player;
 import com.technicjelle.bluemapofflineplayermarkers.core.Singletons;
+import com.technicjelle.bluemapofflineplayermarkers.core.SnapshotPlayerData;
 import com.technicjelle.bluemapofflineplayermarkers.core.fileloader.FileMarkerLoader;
 import com.technicjelle.bluemapofflineplayermarkers.core.markerhandler.BlueMapMarkerHandler;
+import com.technicjelle.bluemapofflineplayermarkers.core.skinserver.SkinCache;
+import com.technicjelle.bluemapofflineplayermarkers.core.skinserver.SkinServer;
+import net.neoforged.fml.loading.FMLPaths;
 import de.bluecolored.bluemap.api.BlueMapAPI;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -27,7 +31,6 @@ import org.apache.logging.log4j.Logger;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Consumer;
@@ -61,56 +64,30 @@ public class BlueMapOfflinePlayerMarkers {
 		// Register BlueMap API listeners
 		BlueMapAPI.onEnable(api -> {
 			LOGGER.info("BlueMap is enabled! Copying resources to BlueMap webapp and registering them...");
+			
+			// Initialize skin server to serve offline skins
+			Path serverRoot = FMLPaths.GAMEDIR.get();
+			SkinServer.initialize(api, serverRoot);
+			
 			try {
-				// Delete old files first to ensure fresh copy
-				Path webAppPath = api.getWebApp().getWebRoot();
-				Path assetsDir = webAppPath.resolve("assets");
-				Path rootDir = webAppPath;
-				
-				try {
-					Files.deleteIfExists(assetsDir.resolve("bmopm.js"));
-					Files.deleteIfExists(assetsDir.resolve("bmopm-player-model.js"));
-					Files.deleteIfExists(assetsDir.resolve("bmopm.css"));
-					Files.deleteIfExists(rootDir.resolve("bmopm.js"));
-					Files.deleteIfExists(rootDir.resolve("bmopm-player-model.js"));
-					Files.deleteIfExists(rootDir.resolve("bmopm.css"));
-					LOGGER.info("Deleted old files");
-				} catch (IOException e) {
-					LOGGER.warn("Failed to delete old files: " + e.getMessage());
-				}
-				
-				// Use versioned filenames to force cache refresh
-				String version = "v5.4";
+				String version = WEB_ASSET_VERSION;
 				String scriptName = "bmopm-" + version + ".js";
 				String playerModelName = "bmopm-player-model-" + version + ".js";
 				String styleName = "bmopm-" + version + ".css";
-				
-				BMCopy.jarResourceToWebApp(api, getClass().getClassLoader(), "style.css", styleName, false);
-				LOGGER.info("Copied style.css to BlueMap webapp as " + styleName);
-				BMCopy.jarResourceToWebApp(api, getClass().getClassLoader(), "script.js", scriptName, false);
-				LOGGER.info("Copied script.js to BlueMap webapp as " + scriptName);
-				BMCopy.jarResourceToWebApp(api, getClass().getClassLoader(), "player-model.js", playerModelName, false);
-				LOGGER.info("Copied player-model.js to BlueMap webapp as " + playerModelName);
-				
-				// Copy files to root directory as well (registerScript might expect them there)
-				try {
-					Files.copy(assetsDir.resolve(scriptName), rootDir.resolve(scriptName), StandardCopyOption.REPLACE_EXISTING);
-					Files.copy(assetsDir.resolve(playerModelName), rootDir.resolve(playerModelName), StandardCopyOption.REPLACE_EXISTING);
-					Files.copy(assetsDir.resolve(styleName), rootDir.resolve(styleName), StandardCopyOption.REPLACE_EXISTING);
-					LOGGER.info("Copied files to webapp root directory");
-				} catch (IOException e) {
-					LOGGER.warn("Failed to copy files to root directory: " + e.getMessage());
-				}
-				
-				// Register scripts with versioned names
+
+				writeFrontendConfig(api);
+				LOGGER.info("Wrote frontend config (showPlayerModels={})",
+						config != null && config.showPlayerModels());
+
+				BMCopy.jarResourceToWebApp(api, getClass().getClassLoader(), "style.css", styleName, true);
+				BMCopy.jarResourceToWebApp(api, getClass().getClassLoader(), "script.js", scriptName, true);
+				BMCopy.jarResourceToWebApp(api, getClass().getClassLoader(), "player-model.js", playerModelName, true);
+
 				api.getWebApp().registerScript(scriptName);
-				LOGGER.info("Registered " + scriptName + " script");
 				api.getWebApp().registerScript(playerModelName);
-				LOGGER.info("Registered " + playerModelName + " script");
 				api.getWebApp().registerStyle(styleName);
-				LOGGER.info("Registered " + styleName + " style");
-				
-				LOGGER.info("All resources successfully copied and registered to BlueMap webapp");
+
+				LOGGER.info("All resources successfully copied and registered to BlueMap webapp ({})", version);
 			} catch (IOException e) {
 				LOGGER.error("Failed to copy resources to BlueMap webapp!", e);
 			}
@@ -123,11 +100,39 @@ public class BlueMapOfflinePlayerMarkers {
 		@SubscribeEvent
 		public void onCommonSetup(FMLCommonSetupEvent event) {
 			LOGGER.info("Common setup event received - initializing config and update checker...");
-			config = new NeoForgeConfig();
+			ensureConfig();
 			LOGGER.info("Config initialized");
 			updateChecker = new UpdateChecker("TechnicJelle", "BlueMapOfflinePlayerMarkers", "3.0");
 			updateChecker.checkAsync();
-			LOGGER.info("Update checker started");
+			// Bridge JUL-based UpdateChecker into Log4j after async check completes
+			Thread updateLogThread = new Thread(() -> {
+				try {
+					Thread.sleep(8000);
+					if (updateChecker.isUpdateAvailable()) {
+						updateChecker.getUpdateMessage().ifPresent(msg ->
+								LOGGER.info("[UpdateChecker] {}", msg));
+						LOGGER.info("[UpdateChecker] Current={}, Latest={}, URL={}",
+								updateChecker.getCurrentVersion(),
+								updateChecker.getLatestVersion(),
+								updateChecker.getUpdateUrl());
+					} else {
+						LOGGER.debug("[UpdateChecker] Up to date ({})", updateChecker.getCurrentVersion());
+					}
+				} catch (InterruptedException e) {
+					Thread.currentThread().interrupt();
+				} catch (Exception e) {
+					LOGGER.debug("[UpdateChecker] {}", e.getMessage());
+				}
+			}, "BMOPM-UpdateChecker");
+			updateLogThread.setDaemon(true);
+			updateLogThread.start();
+			LOGGER.info("Update checker started (async)");
+		}
+	}
+
+	private void ensureConfig() {
+		if (config == null) {
+			config = new NeoForgeConfig();
 		}
 	}
 
@@ -136,6 +141,15 @@ public class BlueMapOfflinePlayerMarkers {
 		@SubscribeEvent
 		public void onServerStarting(ServerStartingEvent event) {
 			LOGGER.info("Server starting event received - initializing mod...");
+			// SP can re-enter worlds; ensure clean singleton state
+			if (Singletons.getServer() != null) {
+				try {
+					Singletons.cleanup();
+				} catch (Exception ignored) {
+					// ignore
+				}
+			}
+			ensureConfig();
 			MinecraftServer server = event.getServer();
 			LOGGER.info("Initializing singletons (server, logger, config, marker handler, API status)...");
 			Singletons.init(
@@ -148,6 +162,11 @@ public class BlueMapOfflinePlayerMarkers {
 			LOGGER.info("Singletons initialized successfully");
 			Singletons.getServer().startUp();
 			LOGGER.info("Server startup completed");
+			
+			// Initialize skin cache
+			Path serverRoot = FMLPaths.GAMEDIR.get();
+			SkinCache.initialize(serverRoot);
+			LOGGER.info("Skin cache initialized");
 
 			// Register BlueMap API enable/disable listeners
 			LOGGER.info("Registering BlueMap API enable/disable listeners...");
@@ -169,7 +188,13 @@ public class BlueMapOfflinePlayerMarkers {
 		public void onServerStopping(ServerStoppingEvent event) {
 			BlueMapAPI.unregisterListener(onEnableListener);
 			BlueMapAPI.unregisterListener(onDisableListener);
-			Singletons.getServer().shutDown();
+			try {
+				if (Singletons.getServer() != null) {
+					Singletons.getServer().shutDown();
+				}
+			} catch (Exception e) {
+				LOGGER.warn("Error during server shutdown of BMOPM: {}", e.getMessage());
+			}
 			LOGGER.info("BlueMap Offline Player Markers mod disabled!");
 			Singletons.cleanup();
 		}
@@ -178,19 +203,32 @@ public class BlueMapOfflinePlayerMarkers {
 		public void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
 			if (event.getEntity() instanceof ServerPlayer player) {
 				UUID playerUUID = player.getUUID();
+				String playerName = player.getGameProfile().getName();
 
 				// Run asynchronously to avoid blocking the server
 				Thread markerRemovalThread = new Thread(() -> {
-					Optional<BlueMapAPI> api = BlueMapAPI.getInstance();
-					if (api.isEmpty()) {
-						Singletons.getLogger().warn("BlueMap is not loaded, not removing marker for " + player.getGameProfile().getName());
-						return;
+					try {
+						Optional<BlueMapAPI> api = BlueMapAPI.getInstance();
+						if (api.isEmpty()) {
+							LOGGER.warn("BlueMap is not loaded, not removing marker for {}", playerName);
+							return;
+						}
+						if (Singletons.getMarkerHandler() == null) {
+							LOGGER.warn("Marker handler not ready, not removing marker for {}", playerName);
+							return;
+						}
+						Singletons.getMarkerHandler().remove(playerUUID, api.get());
+					} catch (Exception e) {
+						LOGGER.warn("Failed to remove offline marker for {}: {}", playerName, e.getMessage());
 					}
-
-					Singletons.getMarkerHandler().remove(playerUUID, api.get());
-				});
+				}, "BMOPM-RemoveMarker");
 				markerRemovalThread.setDaemon(true);
 				markerRemovalThread.start();
+				
+				// Cache player's skin automatically when they join (name helps offline-mode UUIDs)
+				SkinCache.cachePlayerSkin(playerUUID, playerName).thenRun(() -> {
+					LOGGER.debug("Skin caching completed for player: {}", playerName);
+				});
 			}
 		}
 
@@ -198,20 +236,30 @@ public class BlueMapOfflinePlayerMarkers {
 		public void onPlayerLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
 			if (event.getEntity() instanceof ServerPlayer player) {
 				UUID playerUUID = player.getUUID();
+				String playerName = player.getGameProfile().getName();
+
+				// Snapshot on the server thread — ServerPlayer is not safe after disconnect / off-thread
+				SnapshotPlayerData snapshot = SnapshotPlayerData.from(new PlayerNeoForgeData(player));
+				// Player() resolves name/lastPlayed via Singletons; capture now while still online-ish
+				Player playerToAdd = new Player(playerUUID, snapshot);
 
 				// Run asynchronously to avoid blocking the server
 				Thread markerAdditionThread = new Thread(() -> {
-					PlayerNeoForgeData playerNeoForgeData = new PlayerNeoForgeData(player);
-					Player playerToAdd = new Player(playerUUID, playerNeoForgeData);
-
-					Optional<BlueMapAPI> api = BlueMapAPI.getInstance();
-					if (api.isEmpty()) {
-						Singletons.getLogger().warn("BlueMap is not loaded, not adding marker for " + player.getGameProfile().getName());
-						return;
+					try {
+						Optional<BlueMapAPI> api = BlueMapAPI.getInstance();
+						if (api.isEmpty()) {
+							LOGGER.warn("BlueMap is not loaded, not adding marker for {}", playerName);
+							return;
+						}
+						if (Singletons.getMarkerHandler() == null) {
+							LOGGER.warn("Marker handler not ready (server stopping?), not adding marker for {}", playerName);
+							return;
+						}
+						Singletons.getMarkerHandler().add(playerToAdd, api.get());
+					} catch (Exception e) {
+						LOGGER.warn("Failed to add offline marker for {}: {}", playerName, e.getMessage());
 					}
-
-					Singletons.getMarkerHandler().add(playerToAdd, api.get());
-				});
+				}, "BMOPM-AddMarker");
 				markerAdditionThread.setDaemon(true);
 				markerAdditionThread.start();
 			}
@@ -222,11 +270,17 @@ public class BlueMapOfflinePlayerMarkers {
 		LOGGER.info("========================================");
 		LOGGER.info("API Ready! BlueMap Offline Player Markers mod enabled!");
 		LOGGER.info("========================================");
-		// Note: UpdateChecker.logUpdateMessage() expects java.util.logging.Logger
-		// Since we're using Log4j, we skip the update message logging for now
 
 		LOGGER.info("Loading configuration...");
-		config.load();
+		if (config != null) {
+			config.load();
+			// Refresh frontend config now that server config is loaded
+			try {
+				writeFrontendConfig(api);
+			} catch (IOException e) {
+				LOGGER.warn("Failed to refresh frontend config: {}", e.getMessage());
+			}
+		}
 		LOGGER.info("Configuration loaded successfully");
 
 		// Load offline markers asynchronously with a delay
@@ -258,8 +312,25 @@ public class BlueMapOfflinePlayerMarkers {
 		}
 	};
 
+	/** Shared version tag for web assets (must match filenames registered with BlueMap). */
+	static final String WEB_ASSET_VERSION = "v9.3";
+
+	private void writeFrontendConfig(BlueMapAPI api) throws IOException {
+		boolean showModels = config != null && config.showPlayerModels();
+		boolean animateModels = config == null || config.animatePlayerModels();
+		Path assetsDir = api.getWebApp().getWebRoot().resolve("assets");
+		Files.createDirectories(assetsDir);
+		String configJson = "{\n"
+				+ "  \"version\": \"" + WEB_ASSET_VERSION + "\",\n"
+				+ "  \"showPlayerModels\": " + showModels + ",\n"
+				+ "  \"animatePlayerModels\": " + animateModels + "\n"
+				+ "}\n";
+		Files.writeString(assetsDir.resolve("bmopm-config-" + WEB_ASSET_VERSION + ".json"), configJson);
+		Files.writeString(assetsDir.resolve("bmopm-config.json"), configJson);
+	}
+
 	final Consumer<BlueMapAPI> onDisableListener = api -> {
-		Singletons.getLogger().info("API disabled! BlueMap Offline Player Markers shutting down...");
+		LOGGER.info("API disabled! BlueMap Offline Player Markers shutting down...");
 	};
 }
 

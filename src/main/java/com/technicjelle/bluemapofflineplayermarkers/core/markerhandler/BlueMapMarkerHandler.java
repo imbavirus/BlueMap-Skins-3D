@@ -6,12 +6,16 @@ import com.technicjelle.bluemapofflineplayermarkers.common.Config;
 import com.technicjelle.bluemapofflineplayermarkers.common.Server;
 import com.technicjelle.bluemapofflineplayermarkers.core.Player;
 import com.technicjelle.bluemapofflineplayermarkers.core.Singletons;
+import com.technicjelle.bluemapofflineplayermarkers.core.skinserver.SkinCache;
+import com.technicjelle.bluemapofflineplayermarkers.core.skinserver.SkinServer;
 import de.bluecolored.bluemap.api.BlueMapAPI;
 import de.bluecolored.bluemap.api.BlueMapMap;
 import de.bluecolored.bluemap.api.BlueMapWorld;
 import de.bluecolored.bluemap.api.markers.MarkerSet;
 import de.bluecolored.bluemap.api.markers.POIMarker;
 
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -67,9 +71,15 @@ public class BlueMapMarkerHandler implements MarkerHandler {
 
 	@Override
 	public void add(Player player, BlueMapAPI api) {
+		if (api == null) {
+			return;
+		}
 		Config config = Singletons.getConfig();
+		if (config == null) {
+			return;
+		}
 		//If this player's game mode is disabled on the map, don't add the marker.
-		if (config.isGameModeHidden(player.getPlayerData().getGameMode())) {
+		if (player.getPlayerData().getGameMode() != null && config.isGameModeHidden(player.getPlayerData().getGameMode())) {
 			Singletons.getLogger().info("Skipping marker for " + player.getPlayerName() + " - game mode " + player.getPlayerData().getGameMode() + " is hidden");
 			return;
 		}
@@ -102,48 +112,68 @@ public class BlueMapMarkerHandler implements MarkerHandler {
 			Singletons.getLogger().warn("Skipping marker for " + player.getPlayerName() + " - BlueMap world not found for UUID: " + worldUUID.get());
 			return;
 		}
-		Vector3d position = player.getPlayerData().getPosition();
-		if (position == null) {
+		Vector3d basePosition = player.getPlayerData().getPosition();
+		if (basePosition == null) {
 			Singletons.getLogger().warn("Skipping marker for " + player.getPlayerName() + " - no position data found");
 			return;
 		}
-		Vector3d basePosition = position;
-		
-		// For 3D models, position at feet level; for icons, at head level
-		if (config.showPlayerModels()) {
-			// Position at feet level for 3D model
-			position = basePosition;
-		} else {
-			// Add 1.8 to y to place the marker at the head-position of the player, like BlueMap does with its player-markers
-			position = basePosition.add(0, 1.8, 0);
-		}
 
-		// Get rotation for 3D models (always include for frontend toggle)
-		String rotationData = "";
+		// Place marker at feet level. Icons are CSS-offset toward head height;
+		// 3D models stand on the marker position.
+
+		// Encode rotation into CSS classes so the map marker DOM carries it
+		// (detail HTML only appears in the click popup, not on the map element).
+		// Class names must match: -?[_a-zA-Z]+[_a-zA-Z0-9-]*
+		float yaw = 0f;
+		float pitch = 0f;
 		Optional<Vector3d> rotation = player.getPlayerData().getRotation();
 		if (rotation.isPresent()) {
 			Vector3d rot = rotation.get();
-			rotationData = String.format(" data-yaw=\"%.2f\" data-pitch=\"%.2f\"", rot.getX(), rot.getY());
+			yaw = (float) rot.getX();
+			pitch = (float) rot.getY();
+		}
+		// Quantize to integers for valid CSS class tokens (e.g. bmopm-yaw-180, bmopm-pitch-n12)
+		int yawI = Math.round(yaw);
+		int pitchI = Math.round(pitch);
+		String yawClass = "bmopm-yaw-" + (yawI < 0 ? "n" + Math.abs(yawI) : yawI);
+		String pitchClass = "bmopm-pitch-" + (pitchI < 0 ? "n" + Math.abs(pitchI) : pitchI);
+
+		// Try to find and copy skin from server filesystem (for offline skins mod)
+		String skinUrl = SkinServer.findAndCopySkin(player.getPlayerUUID());
+		if (skinUrl != null) {
+			Singletons.getLogger().debug("Found offline skin for " + player.getPlayerName() + " at " + skinUrl);
+		} else {
+			// Skin not found locally - try Mojang / name-based sources (async)
+			SkinCache.cachePlayerSkin(player.getPlayerUUID(), player.getPlayerName()).thenRun(() -> {
+				SkinServer.findAndCopySkin(player.getPlayerUUID());
+			});
 		}
 
-		// Create marker-template
-		// Always include both icon and 3D model container for frontend toggle
+		// Detail is popup-only HTML when the POI icon is clicked
 		String detailHtml = player.getPlayerName() + " <i>(offline)</i><br>"
-				+ "<bmopm-datetime data-timestamp=" + player.getLastPlayed().toEpochMilli() + "></bmopm-datetime>";
-		
-		// Always add 3D model container (frontend will control visibility)
-		detailHtml += "<div class=\"bmopm-3d-model\" data-player-uuid=\"" + player.getPlayerUUID() + "\"" 
-				+ rotationData + " data-animate=\"" + config.animatePlayerModels() + "\"></div>";
-		
-		// Use base position (feet level) - frontend will handle positioning
-		// Add a UUID-derived style class so the frontend can reliably identify and parse the player UUID
-		// (Style classes must match: -?[_a-zA-Z]+[_a-zA-Z0-9-]*)
+				+ "<bmopm-datetime data-timestamp=\"" + player.getLastPlayed().toEpochMilli() + "\"></bmopm-datetime>";
+
+		// Style classes live on the map marker element (what the frontend needs)
+		// Name is base64url-encoded so offline-mode skins can resolve by name on the map UI.
 		String playerUuidClass = "bmopm-player-" + player.getPlayerUUID();
+		String nameB64 = Base64.getUrlEncoder().withoutPadding()
+				.encodeToString(player.getPlayerName().getBytes(StandardCharsets.UTF_8));
+		// CSS class tokens: only [A-Za-z0-9_-]; base64url already fits.
+		String nameClass = "bmopm-nb-" + nameB64;
 		String animateClass = config.animatePlayerModels() ? "bmopm-animate" : "bmopm-no-animate";
+		// Markers are placed at feet level; CSS offsets icons to head height
 		POIMarker.Builder markerBuilder = POIMarker.builder()
 				.label(player.getPlayerName())
 				.detail(detailHtml)
-				.styleClasses("bmopm-offline-player", "bmopm-3d-enabled", playerUuidClass, animateClass)
+				.styleClasses(
+						"bmopm-offline-player",
+						"bmopm-3d-enabled",
+						playerUuidClass,
+						nameClass,
+						animateClass,
+						yawClass,
+						pitchClass
+				)
 				.position(basePosition);
 
 		// Create an icon and marker for each map of this world
@@ -157,9 +187,8 @@ public class BlueMapMarkerHandler implements MarkerHandler {
 			// get marker-set (or create new marker set if none found)
 			MarkerSet markerSet = map.getMarkerSets().computeIfAbsent(Config.MARKER_SET_ID, id -> MarkerSet.builder()
 					.label(config.getMarkerSetName())
-					// Always show offline markers: don't allow hiding them via marker-set toggles.
-					.toggleable(false)
-					.defaultHidden(false)
+					.toggleable(config.isToggleable())
+					.defaultHidden(config.isDefaultHidden())
 					.build());
 
 			// add marker
@@ -167,17 +196,23 @@ public class BlueMapMarkerHandler implements MarkerHandler {
 			mapCount++;
 		}
 
-		Singletons.getLogger().info("Marker for " + player.getPlayerName() + " (" + player.getPlayerUUID() + ") added to " + mapCount + " map(s) at position " + position);
+		Singletons.getLogger().info("Marker for " + player.getPlayerName() + " (" + player.getPlayerUUID() + ") added to " + mapCount + " map(s) at position " + basePosition);
 	}
 
 	@Override
 	public void remove(UUID playerUUID, BlueMapAPI api) {
-		// remove all markers with the players uuid
+		// Remove offline POI on every map so a join never leaves a greyscale ghost
+		String id = playerUUID.toString();
+		int touched = 0;
 		for (BlueMapMap map : api.getMaps()) {
 			MarkerSet set = map.getMarkerSets().get(Config.MARKER_SET_ID);
-			if (set != null) set.remove(playerUUID.toString());
+			if (set == null) continue;
+			set.remove(id);
+			touched++;
 		}
 
-		Singletons.getLogger().info("Marker for " + Singletons.getServer().getPlayerName(playerUUID) + " removed");
+		Singletons.getLogger().info(
+				"Marker for " + Singletons.getServer().getPlayerName(playerUUID)
+						+ " removed (checked " + touched + " map marker-set(s))");
 	}
 }

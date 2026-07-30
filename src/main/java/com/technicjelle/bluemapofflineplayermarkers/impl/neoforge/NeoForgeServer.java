@@ -8,6 +8,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.storage.LevelResource;
 import net.neoforged.fml.loading.FMLPaths;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.Optional;
@@ -51,9 +52,16 @@ public class NeoForgeServer implements Server {
 		if (player != null) {
 			return Instant.ofEpochMilli(player.getLastActionTime());
 		}
-		// For offline players, we'd need to read from playerdata file
-		// This is a simplified version - the actual last played time will be read from NBT
-		return Instant.now();
+		// Offline: use playerdata file mtime (best available proxy without full NBT re-read)
+		try {
+			Path playerData = getPlayerDataFolder().resolve(playerUUID + ".dat");
+			if (Files.exists(playerData)) {
+				return Files.getLastModifiedTime(playerData).toInstant();
+			}
+		} catch (Exception ignored) {
+			// fall through
+		}
+		return Instant.EPOCH;
 	}
 
 	@Override
@@ -127,19 +135,15 @@ public class NeoForgeServer implements Server {
 
 	@Override
 	public Optional<UUID> getWorldUUIDFromStoredUUID(UUID storedWorldUUID) {
-		// Try to find a ServerLevel that matches this UUID
-		// Since we can't directly get the UUID from ServerLevel, we'll iterate through all levels
-		// and check if any match. However, this is difficult without direct UUID access.
-		
-		// For now, if we can't determine the dimension, default to overworld
-		// This is a reasonable fallback since most players log out in the overworld
-		ServerLevel overworld = server.getLevel(Level.OVERWORLD);
-		if (overworld != null) {
-			String dimensionKey = overworld.dimension().location().toString();
-			return Optional.of(UUID.nameUUIDFromBytes(dimensionKey.getBytes()));
+		// Vanilla/NeoForge does not expose Bukkit-style world UIDs on ServerLevel.
+		// Prefer not inventing a wrong world: return empty so callers fall back to
+		// dimension-key matching / BlueMap map scoring (see BlueMapMarkerHandler).
+		if (storedWorldUUID == null || storedWorldUUID.equals(new UUID(0, 0))) {
+			return Optional.empty();
 		}
-		
-		return Optional.empty();
+		// Keep stored UUID as a last-chance passthrough for BlueMap implementations
+		// that key worlds by the level storage UUID.
+		return Optional.of(storedWorldUUID);
 	}
 
 	@Override
