@@ -56,7 +56,7 @@ Reload BlueMap with `/bluemap reload` after config changes when supported.
 ## Download
 
 - [Releases](../../releases/latest)
-- Branch: [`neoforge`](https://github.com/imbavirus/BlueMapOfflinePlayerMarkers/tree/neoforge)
+- Branch: [`neoforge`](https://github.com/imbavirus/BlueMap-Skins-3D/tree/neoforge)
 
 ## Credits
 
