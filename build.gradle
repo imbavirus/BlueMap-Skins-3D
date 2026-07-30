@@ -40,7 +40,7 @@ configurations {
 
 version = '3.0'
 group = 'com.technicjelle'
-archivesBaseName = '3DBlueMapSkins'
+archivesBaseName = 'BlueMapSkins3D'
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 

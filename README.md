@@ -1,4 +1,4 @@
-# 3D BlueMap Skins
+# BlueMap Skins 3D
 
 Full-body player skins on [BlueMap](https://github.com/BlueMap-Minecraft/BlueMap) for **NeoForge** — online models, greyscale offline markers, and in-map **3D** / **Offline** toggles.
 
@@ -35,7 +35,7 @@ Declared in `META-INF/neoforge.mods.toml` (`type=required`, `displayTest=IGNORE_
 ## Install
 
 1. Install NeoForge + BlueMap on the **server**.
-2. Drop `3DBlueMapSkins-*.jar` into the server `mods` folder.
+2. Drop `BlueMapSkins3D-*.jar` into the server `mods` folder.
 3. Start once, then adjust config if needed.
 4. Open BlueMap and use the **3D** / **Offline** buttons.
 
