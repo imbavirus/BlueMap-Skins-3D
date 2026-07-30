@@ -147,3 +147,11 @@ out/
 *.dll
 *.so
 *.dylib
+# Secrets / local publish config
+.env
+!.env.example
+
+
+# Allow release publish script
+!publish.ps1
+
