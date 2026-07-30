@@ -20,15 +20,17 @@ Full-body player skins on [BlueMap](https://github.com/BlueMap-Minecraft/BlueMap
 - **Map controls** — show/hide 3D models and offline markers from the BlueMap UI
 - Config for marker set name, expiry hours, hidden game modes, banned players, model defaults
 
-## Requirements
+## Requirements (metadata)
 
 | | |
 |---|---|
-| Minecraft | **1.21.1** |
-| Loader | **NeoForge** 21.1.x |
-| Dependency | **BlueMap** (NeoForge) |
+| Minecraft | **1.21.1** (required) |
+| Loader | **NeoForge** **21.1.217+** (required) |
+| Dependency | **BlueMap** NeoForge **5.0+** (required, loads after BlueMap) |
+| Environment | **Server-side** — dedicated or integrated server |
+| Client | **Not required** — players join without this mod; map is in the browser |
 
-Server-side for map features (players don’t need this mod to appear on BlueMap).
+Declared in `META-INF/neoforge.mods.toml` (`type=required`, `displayTest=IGNORE_SERVER_VERSION`).
 
 ## Install
 

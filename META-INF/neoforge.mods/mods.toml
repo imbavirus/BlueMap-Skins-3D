@@ -1,26 +1,46 @@
-modLoader="neoforge"
-loaderVersion="[1,)"
+modLoader="javafml"
+loaderVersion="[4,)"
 license="MIT"
+issueTrackerURL="https://github.com/imbavirus/BlueMapOfflinePlayerMarkers/issues"
 
 [[mods]]
 modId="bluemapofflineplayermarkers"
 version="3.0"
 displayName="3D BlueMap Skins"
-description="Full-body player skins on BlueMap — online models, greyscale offline markers, and map toggles for 3D/Offline."
+displayTest="IGNORE_SERVER_VERSION"
 authors="TechnicJelle, Mark-255, Blue, Seercat3160, imbavirus"
 credits="Based on BlueMap Offline Player Markers; NeoForge 3D skin UI"
+displayURL="https://github.com/imbavirus/BlueMapOfflinePlayerMarkers"
+description='''
+3D BlueMap Skins — full-body player skins on BlueMap.
+
+Environment: Server-side (dedicated server or integrated server). Clients do not need this mod; the map is viewed in a browser via BlueMap.
+
+Required dependencies:
+- Minecraft 1.21.1
+- NeoForge 21.1.217+
+- BlueMap (NeoForge)
+
+Features: online full-body models, greyscale offline markers, Offline label, in-map 3D/Offline toggles.
+'''
+
+[[dependencies.bluemapofflineplayermarkers]]
+modId="minecraft"
+type="required"
+versionRange="[1.21.1]"
+ordering="NONE"
+side="BOTH"
 
 [[dependencies.bluemapofflineplayermarkers]]
 modId="neoforge"
-mandatory=true
+type="required"
 versionRange="[21.1.217,)"
 ordering="NONE"
 side="BOTH"
 
 [[dependencies.bluemapofflineplayermarkers]]
 modId="bluemap"
-mandatory=true
-versionRange="[1,)"
-ordering="NONE"
+type="required"
+versionRange="[5.0,)"
+ordering="AFTER"
 side="BOTH"
-
