@@ -102,7 +102,7 @@ public class NeoForgeConfig implements Config {
 		props.setProperty("AnimatePlayerModels", String.valueOf(animatePlayerModels));
 
 		try (var writer = Files.newBufferedWriter(configFile)) {
-			props.store(writer, "BlueMap Offline Player Markers Configuration");
+			props.store(writer, "3D BlueMap Skins Configuration");
 		} catch (IOException e) {
 			throw new RuntimeException("Failed to save config file", e);
 		}

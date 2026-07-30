@@ -5,10 +5,10 @@ license="MIT"
 [[mods]]
 modId="bluemapofflineplayermarkers"
 version="3.0"
-displayName="BlueMap Offline Player Markers"
-description="Adds markers where players have logged off to BlueMap"
-authors="TechnicJelle, Mark-255, Blue, Seercat3160"
-credits="Special thanks to all contributors"
+displayName="3D BlueMap Skins"
+description="Full-body player skins on BlueMap — online models, greyscale offline markers, and map toggles for 3D/Offline."
+authors="TechnicJelle, Mark-255, Blue, Seercat3160, imbavirus"
+credits="Based on BlueMap Offline Player Markers; NeoForge 3D skin UI"
 
 [[dependencies.bluemapofflineplayermarkers]]
 modId="neoforge"

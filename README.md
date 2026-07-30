@@ -1,6 +1,6 @@
-# BlueMap Offline Player Markers (NeoForge)
+# 3D BlueMap Skins
 
-Adds markers where players have logged off to [BlueMap](https://github.com/BlueMap-Minecraft/BlueMap) — with optional full-body skins, offline greyscale styling, and in-map toggles.
+Full-body player skins on [BlueMap](https://github.com/BlueMap-Minecraft/BlueMap) for **NeoForge** — online models, greyscale offline markers, and in-map **3D** / **Offline** toggles.
 
 **Target:** Minecraft **1.21.1** · **NeoForge** 21.1.x · requires **BlueMap**
 
@@ -12,9 +12,8 @@ Adds markers where players have logged off to [BlueMap](https://github.com/BlueM
 
 ## Features
 
+- **Full-body skins** on the web map (optional; toggleable)
 - **Offline markers** at each player’s last logout position (and dimension)
-- **Player skins** on markers (with caching)
-- **Optional full-body models** on the web map (toggle in-map and in config)
 - **World-scale bodies** — sized to about a real player height (~1.8 blocks) as you zoom
 - **Facing** matches the player’s in-game yaw when available
 - **Offline styling** — greyscale + clear Offline labeling
@@ -34,7 +33,7 @@ Server-side for map features (players don’t need this mod to appear on BlueMap
 ## Install
 
 1. Install NeoForge + BlueMap on the **server**.
-2. Drop this mod into the server `mods` folder.
+2. Drop `3DBlueMapSkins-*.jar` into the server `mods` folder.
 3. Start once, then adjust config if needed.
 4. Open BlueMap and use the **3D** / **Offline** buttons.
 
@@ -48,8 +47,6 @@ Reload BlueMap with `/bluemap reload` after config changes when supported.
 - **ShowPlayerModels** / **AnimatePlayerModels**
 
 ## Screenshots (gallery sources)
-
-Same images for CurseForge / Modrinth uploads:
 
 - [Online full-body model](https://i.gyazo.com/876492a278f8994f5f6ae19b665b3165.jpg)
 - [Offline greyscale + Offline label](https://i.gyazo.com/a1484bcfebe5548acd6ea3fadca45a20.jpg)
@@ -65,11 +62,7 @@ Based on the original [BlueMap Offline Player Markers](https://github.com/Techni
 
 Special thanks to Seercat3160, Mark-255, elsing, LOOHP, Blue (TBlueF), and everyone who contributed to the original project.
 
-Other platform ports of the original (not maintained here):
-
-- [Fabric](https://github.com/syorito-hatsuki/BlueMapOfflinePlayerMarkersFabric)
-- [Forge](https://github.com/FLORIAN4600/BlueMapOfflinePlayerMarkersForge)
-- [Folia](https://github.com/kgncengiz/BlueMapOfflinePlayerMarkersFoliaFork)
+**Internal mod ID** remains `bluemapofflineplayermarkers` (config folder path unchanged for compatibility).
 
 ## License
 

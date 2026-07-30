@@ -1,4 +1,4 @@
-// BlueMap Offline Player Markers — player figures (v9.2)
+// 3D BlueMap Skins — player figures (v9.2)
 // Size: projected 1.8 world blocks (option B) — unchanged from working v9.0.
 // Facing: simple playerWrapper.rotation from MC yaw only (no skinview camera hacks).
 (function () {

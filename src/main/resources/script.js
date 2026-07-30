@@ -1,4 +1,4 @@
-// BlueMap Offline Player Markers — map UI (v9.0)
+// 3D BlueMap Skins — map UI (v9.0)
 // Feeds world x/y/z/yaw; body size is projected 1.8 blocks (option B).
 (function () {
 	'use strict';

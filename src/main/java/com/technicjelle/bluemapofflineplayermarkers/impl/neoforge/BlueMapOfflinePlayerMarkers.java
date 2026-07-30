@@ -54,7 +54,7 @@ public class BlueMapOfflinePlayerMarkers {
 	private UpdateChecker updateChecker;
 
 	public BlueMapOfflinePlayerMarkers(ModContainer modContainer) {
-		LOGGER.info("BlueMap Offline Player Markers mod initializing...");
+		LOGGER.info("3D BlueMap Skins mod initializing...");
 		// Register FML lifecycle events (like FMLCommonSetupEvent) on the mod event bus
 		modContainer.getEventBus().register(new ModEventHandler());
 		// Register game events (like ServerStartingEvent, PlayerEvent) on the NeoForge event bus
@@ -195,7 +195,7 @@ public class BlueMapOfflinePlayerMarkers {
 			} catch (Exception e) {
 				LOGGER.warn("Error during server shutdown of BMOPM: {}", e.getMessage());
 			}
-			LOGGER.info("BlueMap Offline Player Markers mod disabled!");
+			LOGGER.info("3D BlueMap Skins mod disabled!");
 			Singletons.cleanup();
 		}
 
@@ -268,7 +268,7 @@ public class BlueMapOfflinePlayerMarkers {
 
 	final Consumer<BlueMapAPI> onEnableListener = api -> {
 		LOGGER.info("========================================");
-		LOGGER.info("API Ready! BlueMap Offline Player Markers mod enabled!");
+		LOGGER.info("API Ready! 3D BlueMap Skins mod enabled!");
 		LOGGER.info("========================================");
 
 		LOGGER.info("Loading configuration...");
@@ -330,7 +330,7 @@ public class BlueMapOfflinePlayerMarkers {
 	}
 
 	final Consumer<BlueMapAPI> onDisableListener = api -> {
-		LOGGER.info("API disabled! BlueMap Offline Player Markers shutting down...");
+		LOGGER.info("API disabled! 3D BlueMap Skins shutting down...");
 	};
 }
 

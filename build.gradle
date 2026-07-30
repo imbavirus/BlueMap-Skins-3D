@@ -40,7 +40,7 @@ configurations {
 
 version = '3.0'
 group = 'com.technicjelle'
-archivesBaseName = 'BlueMapOfflinePlayerMarkers'
+archivesBaseName = '3DBlueMapSkins'
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 
