@@ -1,46 +1,76 @@
-# BlueMap Offline Player Markers
+# BlueMap Offline Player Markers (NeoForge)
 
-[![GitHub Total Downloads](https://img.shields.io/github/downloads/TechnicJelle/BlueMapOfflinePlayerMarkers/total?label=Downloads&color=success "Click here to download the plugin")](https://github.com/TechnicJelle/BlueMapOfflinePlayerMarkers/releases/latest)
-[![Servers using this plugin](https://img.shields.io/bstats/servers/16425?label=Servers)](https://bstats.org/plugin/bukkit/BlueMap%20Offline%20Player%20Markers/16425)
+Adds markers where players have logged off to [BlueMap](https://github.com/BlueMap-Minecraft/BlueMap) — with optional full-body skins, offline greyscale styling, and in-map toggles.
 
-Adds markers in the positions where players have logged off to [BlueMap](https://github.com/BlueMap-Minecraft/BlueMap).
+**Target:** Minecraft **1.21.1** · **NeoForge** 21.1.x · requires **BlueMap**
 
-| Closeup                                                                         | Faraway                                                                               | 
-|---------------------------------------------------------------------------------|---------------------------------------------------------------------------------------|
-| ![closeup of the two offline player markers](.github/readme_assets/closeup.png) | ![far away shot of the two offline player markers](.github/readme_assets/faraway.png) |
+| Online (full color) | Offline (greyscale) |
+|---------------------|---------------------|
+| ![Online full-body player model on BlueMap](.github/readme_assets/neoforge-map-closeup.jpg) | ![Offline greyscale player model with Offline label](.github/readme_assets/neoforge-map-overview.jpg) |
 
-Compatible with Paper 1.13+, just like BlueMap itself.
+*Left: online player with real skin and name tag. Right: same spot offline — greyscale model and Offline label. Bottom-right: **3D** / **Offline** map controls.*
 
-To reload this plugin, just reload BlueMap itself with `/bluemap reload`.
+## Features
 
-If you want specific players to not get offline markers, you can hide them from BlueMap
-by using a plugin like [BlueMapPlayerControl](https://github.com/TechnicJelle/BlueMapPlayerControl) (also by me).
+- **Offline markers** at each player’s last logout position (and dimension)
+- **Player skins** on markers (with caching)
+- **Optional full-body models** on the web map (toggle in-map and in config)
+- **World-scale bodies** — sized to about a real player height (~1.8 blocks) as you zoom
+- **Facing** matches the player’s in-game yaw when available
+- **Offline styling** — greyscale + clear Offline labeling
+- **Map controls** — show/hide 3D models and offline markers from the BlueMap UI
+- Config for marker set name, expiry hours, hidden game modes, banned players, model defaults
 
-By default, banned players also don't show up. You can change this in the config, though.
+## Requirements
 
-If you want to permanently hide a player from the map, you can also just delete their playerdata file from your server.
+| | |
+|---|---|
+| Minecraft | **1.21.1** |
+| Loader | **NeoForge** 21.1.x |
+| Dependency | **BlueMap** (NeoForge) |
 
-For a **Fabric** port of this plugin, please see [this fork by syorito-hatsuki](https://github.com/syorito-hatsuki/BlueMapOfflinePlayerMarkersFabric)  
-For a **Forge** port of this plugin, please see [this fork by FLORIAN4600](https://github.com/FLORIAN4600/BlueMapOfflinePlayerMarkersForge)  
-For a **Folia** port of this plugin, please see [this fork by kgncengiz](https://github.com/kgncengiz/BlueMapOfflinePlayerMarkersFoliaFork)  
-**Disclaimer:** I am not responsible for these ports.
+Server-side for map features (players don’t need this mod to appear on BlueMap).
 
-## [Click here to download!](../../releases/latest)
+## Install
 
-## [TODO list](../../projects/1?fullscreen=true)
+1. Install NeoForge + BlueMap on the **server**.
+2. Drop this mod into the server `mods` folder.
+3. Start once, then adjust config if needed.
+4. Open BlueMap and use the **3D** / **Offline** buttons.
 
-## Support
+Reload BlueMap with `/bluemap reload` after config changes when supported.
 
-To get support with this plugin, join the [BlueMap Discord server](https://bluecolo.red/map-discord)
-and ask your questions in [#3rd-party-support](https://discord.com/channels/665868367416131594/863844716047106068). You're welcome to ping me, @TechnicJelle.
+## Config highlights
 
-## Special thanks to
+- **ExpireTimeInHours** — only keep recent logouts (`0` = keep all)
+- **HideBannedPlayers**
+- **HiddenGameModes** (e.g. spectator)
+- **ShowPlayerModels** / **AnimatePlayerModels**
 
-[Seercat3160](https://github.com/Seercat3160), [Mark-255](https://github.com/Mark-225),
-[elsing](https://github.com/elsing), [LOOHP](https://github.com/LOOHP)
-and [Blue](https://github.com/TBlueF) for their contributions to the project!
+## Screenshots (gallery sources)
 
-[pop4959](https://github.com/pop4959/BlueMap-Essentials), [JotaFaD](https://github.com/JotaFaD/CivsExtras)
-and [YouHaveTrouble](https://github.com/YouHaveTrouble/ServerBasics/blob/a61de3f4964df8764ca15b3562a3c9227f0459ea/src/main/java/me/youhavetrouble/serverbasics/NMSHandler.java#L63) for their
-open-source plugins that gave me great examples to learn from.\
-And [TBlueF](https://github.com/TBlueF) of course for his amazing plugin and fast support with my silly questions!
+Same images for CurseForge / Modrinth uploads:
+
+- [Online full-body model](https://i.gyazo.com/876492a278f8994f5f6ae19b665b3165.jpg)
+- [Offline greyscale + Offline label](https://i.gyazo.com/a1484bcfebe5548acd6ea3fadca45a20.jpg)
+
+## Download
+
+- [Releases](../../releases/latest)
+- Branch: [`neoforge`](https://github.com/imbavirus/BlueMapOfflinePlayerMarkers/tree/neoforge)
+
+## Credits
+
+Based on the original [BlueMap Offline Player Markers](https://github.com/TechnicJelle/BlueMapOfflinePlayerMarkers) by **TechnicJelle** and contributors (**MIT**).
+
+Special thanks to Seercat3160, Mark-255, elsing, LOOHP, Blue (TBlueF), and everyone who contributed to the original project.
+
+Other platform ports of the original (not maintained here):
+
+- [Fabric](https://github.com/syorito-hatsuki/BlueMapOfflinePlayerMarkersFabric)
+- [Forge](https://github.com/FLORIAN4600/BlueMapOfflinePlayerMarkersForge)
+- [Folia](https://github.com/kgncengiz/BlueMapOfflinePlayerMarkersFoliaFork)
+
+## License
+
+MIT — see [LICENSE](LICENSE).
